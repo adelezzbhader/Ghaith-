@@ -1,53 +1,66 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:mongez/core/app_themes/app_themes.dart';
-import 'package:mongez/core/bloc/cubit/localization_cubit.dart';
-import 'package:mongez/core/bloc/theme_cubit/theme_cubit.dart';
-import 'package:mongez/core/helpers.dart';
-import 'package:mongez/features/login_feature/screens/get_started_screen.dart';
-import 'package:mongez/generated/l10n.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mongez/core/localization/localization_cubit.dart';
+import 'package:mongez/core/theme/app_theme.dart';
+import 'package:mongez/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:mongez/injection_container.dart' as di;
+import 'package:mongez/router/app_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await AppPrefs.init();
-  runApp(const MyApp());
+  await di.initDependencies();
+  runApp(const GhaithApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class GhaithApp extends StatefulWidget {
+  const GhaithApp({super.key});
+
+  @override
+  State<GhaithApp> createState() => _GhaithAppState();
+}
+
+class _GhaithAppState extends State<GhaithApp> {
+  late final AppRouter _appRouter;
+
+  @override
+  void initState() {
+    super.initState();
+    final authBloc = di.sl<AuthBloc>();
+    _appRouter = AppRouter(authBloc: authBloc);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Builder(
-      builder: (context) {
+    return ScreenUtilInit(
+      designSize: const Size(375, 812),
+      minTextAdapt: true,
+      splitScreenMode: true,
+      builder: (context, child) {
         return MultiBlocProvider(
           providers: [
-            BlocProvider(create: (_) => ThemeCubit(context)),
-            BlocProvider(create: (_) => LocalizationCubit()),
+            BlocProvider(create: (_) => di.sl<LocalizationCubit>()),
+            BlocProvider(create: (_) => di.sl<AuthBloc>()),
           ],
-          child: BlocBuilder<ThemeCubit, ThemeState>(
-            builder: (context, themeState) {
-              return BlocBuilder<LocalizationCubit, LocalizationState>(
-                builder: (context, localeState) {
-                  return MaterialApp(
-                    debugShowCheckedModeBanner: false,
-                    theme: AppThemes.lightTheme,
-                    darkTheme: AppThemes.darkTheme,
-                    themeMode: themeState.themeMode,
-                    locale: localeState.locale,
-
-                    localizationsDelegates: [
-                      S.delegate,
-                      GlobalMaterialLocalizations.delegate,
-                      GlobalWidgetsLocalizations.delegate,
-                      GlobalCupertinoLocalizations.delegate,
-                    ],
-                    supportedLocales: S.delegate.supportedLocales,
-
-                    home: const GetStartedScreen(),
-                  );
-                },
+          child: BlocBuilder<LocalizationCubit, Locale>(
+            builder: (context, locale) {
+              final isRtl = locale.languageCode == 'ar';
+              return Directionality(
+                textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+                child: MaterialApp.router(
+                  title: 'غيث',
+                  debugShowCheckedModeBanner: false,
+                  locale: locale,
+                  supportedLocales: const [Locale('ar'), Locale('en')],
+                  localizationsDelegates: const [
+                    GlobalMaterialLocalizations.delegate,
+                    GlobalWidgetsLocalizations.delegate,
+                    GlobalCupertinoLocalizations.delegate,
+                  ],
+                  theme: AppTheme.lightTheme,
+                  routerConfig: _appRouter.router,
+                ),
               );
             },
           ),
