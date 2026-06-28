@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:mongez/core/constants/api_constants.dart';
+import 'package:mongez/core/errors/api_error_parser.dart';
 import 'package:mongez/core/errors/exceptions.dart';
 import 'package:mongez/core/network/api_client.dart';
 import 'package:mongez/features/home/data/models/area_model.dart';
@@ -14,42 +15,38 @@ class HomeRemoteDataSource {
   Future<List<ServiceModel>> getServices() async {
     try {
       final response = await _apiClient.get(ApiConstants.services);
-      final List<dynamic> data = response.data is List
-          ? response.data
-          : (response.data['results'] ?? response.data['data'] ?? []);
-      return data.map((json) => ServiceModel.fromJson(json)).toList();
+      final body = response.data as Map<String, dynamic>;
+      final data = body['data'] as Map<String, dynamic>;
+      final results = data['results'] as List<dynamic>;
+      return results.map((json) => ServiceModel.fromJson(json)).toList();
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data['message'] ?? e.message ?? 'Failed to load services',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 
   Future<List<AreaModel>> getAreas() async {
     try {
       final response = await _apiClient.get(ApiConstants.areas);
-      final List<dynamic> data = response.data is List
-          ? response.data
-          : (response.data['results'] ?? response.data['data'] ?? []);
-      return data.map((json) => AreaModel.fromJson(json)).toList();
+      final body = response.data as Map<String, dynamic>;
+      final data = body['data'] as Map<String, dynamic>;
+      final results = data['results'] as List<dynamic>;
+      return results.map((json) => AreaModel.fromJson(json)).toList();
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data['message'] ?? e.message ?? 'Failed to load areas',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 
   Future<StatsModel> getStats() async {
     try {
       final response = await _apiClient.get(ApiConstants.siteStats);
-      return StatsModel.fromJson(response.data);
+      final body = response.data as Map<String, dynamic>;
+      final data = body['data'] as Map<String, dynamic>;
+      return StatsModel.fromJson(data);
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data['message'] ?? e.message ?? 'Failed to load stats',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 }

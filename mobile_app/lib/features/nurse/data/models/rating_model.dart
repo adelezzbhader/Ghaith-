@@ -24,14 +24,27 @@ class RatingModel extends Equatable {
         (json['order_id'] as String?) ??
         (json['orderId'] as String?) ??
         '';
-    String patientName = (json['patient_name'] as String?) ??
-        (json['patientName'] as String?) ??
-        (json['patient'] as String?) ??
-        '';
+    String patientName;
+    if (json['patient'] is Map<String, dynamic>) {
+      final patient = json['patient'] as Map<String, dynamic>;
+      patientName = (patient['full_name'] as String?) ??
+          (patient['fullName'] as String?) ??
+          (patient['name'] as String?) ??
+          '';
+    } else {
+      patientName = (json['patient_name'] as String?) ??
+          (json['patientName'] as String?) ??
+          (json['patient'] as String?) ??
+          '';
+    }
     String? comment = json['comment'] as String? ?? json['feedback'] as String?;
     String date = (json['date'] as String?) ?? (json['created_at'] as String?) ?? '';
     int rating;
-    if (json['rating'] is int) {
+    if (json['score'] is int) {
+      rating = json['score'] as int;
+    } else if (json['score'] is String) {
+      rating = int.tryParse(json['score'] as String) ?? 0;
+    } else if (json['rating'] is int) {
       rating = json['rating'] as int;
     } else if (json['rating'] is String) {
       rating = int.tryParse(json['rating'] as String) ?? 0;

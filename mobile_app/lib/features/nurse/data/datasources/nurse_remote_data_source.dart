@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../../../../core/constants/api_constants.dart';
+import '../../../../core/errors/api_error_parser.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../models/nurse_order_model.dart';
@@ -16,6 +17,7 @@ abstract class NurseRemoteDataSource {
   Future<EarningsModel> getEarnings();
   Future<List<RatingModel>> getRatings();
   Future<Map<String, dynamic>> getStats();
+  Future<List<Map<String, dynamic>>> getServices();
 }
 
 class NurseRemoteDataSourceImpl implements NurseRemoteDataSource {
@@ -27,12 +29,11 @@ class NurseRemoteDataSourceImpl implements NurseRemoteDataSource {
   Future<Map<String, dynamic>> getProfile() async {
     try {
       final response = await _apiClient.get(ApiConstants.profile);
-      return response.data as Map<String, dynamic>;
+      final raw = response.data as Map<String, dynamic>;
+      return raw['data'] as Map<String, dynamic>? ?? raw;
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'فشل في تحميل الملف الشخصي',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 
@@ -44,12 +45,21 @@ class NurseRemoteDataSourceImpl implements NurseRemoteDataSource {
       List<dynamic> ordersList;
       if (data is List) {
         ordersList = data;
-      } else if (data is Map<String, dynamic> && data['results'] is List) {
-        ordersList = data['results'] as List;
-      } else if (data is Map<String, dynamic> && data['orders'] is List) {
-        ordersList = data['orders'] as List;
-      } else if (data is Map<String, dynamic> && data['data'] is List) {
-        ordersList = data['data'] as List;
+      } else if (data is Map<String, dynamic>) {
+        final inner = data['data'];
+        if (inner is Map<String, dynamic> && inner['results'] is List) {
+          ordersList = inner['results'] as List;
+        } else if (inner is List) {
+          ordersList = inner;
+        } else if (data['results'] is List) {
+          ordersList = data['results'] as List;
+        } else if (data['orders'] is List) {
+          ordersList = data['orders'] as List;
+        } else if (data['data'] is List) {
+          ordersList = data['data'] as List;
+        } else {
+          ordersList = [];
+        }
       } else {
         ordersList = [];
       }
@@ -58,10 +68,8 @@ class NurseRemoteDataSourceImpl implements NurseRemoteDataSource {
           .map((e) => NurseOrderModel.fromJson(e as Map<String, dynamic>))
           .toList();
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'فشل في تحميل الطلبات النشطة',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 
@@ -73,12 +81,21 @@ class NurseRemoteDataSourceImpl implements NurseRemoteDataSource {
       List<dynamic> ordersList;
       if (data is List) {
         ordersList = data;
-      } else if (data is Map<String, dynamic> && data['results'] is List) {
-        ordersList = data['results'] as List;
-      } else if (data is Map<String, dynamic> && data['orders'] is List) {
-        ordersList = data['orders'] as List;
-      } else if (data is Map<String, dynamic> && data['data'] is List) {
-        ordersList = data['data'] as List;
+      } else if (data is Map<String, dynamic>) {
+        final inner = data['data'];
+        if (inner is Map<String, dynamic> && inner['results'] is List) {
+          ordersList = inner['results'] as List;
+        } else if (inner is List) {
+          ordersList = inner;
+        } else if (data['results'] is List) {
+          ordersList = data['results'] as List;
+        } else if (data['orders'] is List) {
+          ordersList = data['orders'] as List;
+        } else if (data['data'] is List) {
+          ordersList = data['data'] as List;
+        } else {
+          ordersList = [];
+        }
       } else {
         ordersList = [];
       }
@@ -87,10 +104,8 @@ class NurseRemoteDataSourceImpl implements NurseRemoteDataSource {
           .map((e) => NurseOrderModel.fromJson(e as Map<String, dynamic>))
           .toList();
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'فشل في تحميل طلباتي',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 
@@ -106,10 +121,8 @@ class NurseRemoteDataSourceImpl implements NurseRemoteDataSource {
       }
       return NurseOrderModel.fromJson(data);
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'فشل في قبول الطلب',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 
@@ -125,10 +138,8 @@ class NurseRemoteDataSourceImpl implements NurseRemoteDataSource {
       }
       return NurseOrderModel.fromJson(data);
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'فشل في إتمام الطلب',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 
@@ -137,10 +148,8 @@ class NurseRemoteDataSourceImpl implements NurseRemoteDataSource {
     try {
       await _apiClient.post(ApiConstants.nurseCancelOrder(id));
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'فشل في إلغاء الطلب',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 
@@ -148,15 +157,12 @@ class NurseRemoteDataSourceImpl implements NurseRemoteDataSource {
   Future<EarningsModel> getEarnings() async {
     try {
       final response = await _apiClient.get(ApiConstants.nurseEarnings);
-      final data = response.data is Map<String, dynamic>
-          ? response.data as Map<String, dynamic>
-          : <String, dynamic>{};
+      final raw = response.data as Map<String, dynamic>;
+      final data = raw['data'] as Map<String, dynamic>? ?? raw;
       return EarningsModel.fromJson(data);
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'فشل في تحميل الأرباح',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 
@@ -168,12 +174,21 @@ class NurseRemoteDataSourceImpl implements NurseRemoteDataSource {
       List<dynamic> ratingsList;
       if (data is List) {
         ratingsList = data;
-      } else if (data is Map<String, dynamic> && data['results'] is List) {
-        ratingsList = data['results'] as List;
-      } else if (data is Map<String, dynamic> && data['ratings'] is List) {
-        ratingsList = data['ratings'] as List;
-      } else if (data is Map<String, dynamic> && data['data'] is List) {
-        ratingsList = data['data'] as List;
+      } else if (data is Map<String, dynamic>) {
+        final inner = data['data'];
+        if (inner is Map<String, dynamic> && inner['results'] is List) {
+          ratingsList = inner['results'] as List;
+        } else if (inner is List) {
+          ratingsList = inner;
+        } else if (data['results'] is List) {
+          ratingsList = data['results'] as List;
+        } else if (data['ratings'] is List) {
+          ratingsList = data['ratings'] as List;
+        } else if (data['data'] is List) {
+          ratingsList = data['data'] as List;
+        } else {
+          ratingsList = [];
+        }
       } else {
         ratingsList = [];
       }
@@ -182,10 +197,8 @@ class NurseRemoteDataSourceImpl implements NurseRemoteDataSource {
           .map((e) => RatingModel.fromJson(e as Map<String, dynamic>))
           .toList();
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'فشل في تحميل التقييمات',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 
@@ -193,12 +206,42 @@ class NurseRemoteDataSourceImpl implements NurseRemoteDataSource {
   Future<Map<String, dynamic>> getStats() async {
     try {
       final response = await _apiClient.get(ApiConstants.nurseStats);
-      return response.data as Map<String, dynamic>;
+      final raw = response.data as Map<String, dynamic>;
+      return raw['data'] as Map<String, dynamic>? ?? raw;
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'فشل في تحميل الإحصائيات',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getServices() async {
+    try {
+      final response = await _apiClient.get(ApiConstants.services);
+      final data = response.data;
+      List<dynamic> servicesList;
+      if (data is List) {
+        servicesList = data;
+      } else if (data is Map<String, dynamic>) {
+        final inner = data['data'];
+        if (inner is Map<String, dynamic> && inner['results'] is List) {
+          servicesList = inner['results'] as List;
+        } else if (inner is List) {
+          servicesList = inner;
+        } else if (data['results'] is List) {
+          servicesList = data['results'] as List;
+        } else if (data['data'] is List) {
+          servicesList = data['data'] as List;
+        } else {
+          servicesList = [];
+        }
+      } else {
+        servicesList = [];
+      }
+      return servicesList.where((e) => e is Map<String, dynamic>).map((e) => e as Map<String, dynamic>).toList();
+    } on DioException catch (e) {
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 }

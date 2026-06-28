@@ -6,6 +6,8 @@ import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/empty_state_widget.dart';
 import '../../../../core/widgets/error_widget.dart';
 import '../../../../core/widgets/loading_widget.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../data/models/nurse_order_model.dart';
 import '../bloc/nurse_bloc.dart';
 
@@ -31,7 +33,9 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<NurseBloc>().add(const LoadNurseDashboard());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NurseBloc>().add(const LoadNurseDashboard());
+    });
   }
 
   @override
@@ -158,7 +162,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     return Container(
       padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 16.h, left: 20.w, right: 20.w, bottom: 24.h),
       decoration: const BoxDecoration(
-        gradient: AppTheme.headerGradient,
+        gradient: AppTheme.heroGradient,
         borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
       ),
       child: Align(
@@ -178,8 +182,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
   Widget _buildHomeTab(NurseDashboardLoaded state) {
     final profile = state.profile;
-    final firstName = (profile['first_name'] as String?) ??
-        (profile['firstName'] as String?) ??
+    final firstName = (profile['full_name'] as String?) ??
+        (profile['fullName'] as String?) ??
         (profile['name'] as String?) ??
         'ممرض';
     final stats = state.stats;
@@ -190,7 +194,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           child: Container(
             padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 16.h, left: 20.w, right: 20.w, bottom: 24.h),
             decoration: const BoxDecoration(
-              gradient: AppTheme.headerGradient,
+              gradient: AppTheme.heroGradient,
               borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
             ),
             child: Column(
@@ -201,7 +205,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-                      onPressed: () {},
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('الإشعارات قريباً', style: TextStyle(fontFamily: 'Cairo'))),
+                        );
+                      },
                     ),
                     Text(
                       'غيث',
@@ -292,6 +300,85 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           ),
         ),
         SliverToBoxAdapter(child: SizedBox(height: 16.h)),
+        if (state.services.isNotEmpty) ...[
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w),
+              child: Text(
+                'الخدمات',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(child: SizedBox(height: 8.h)),
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 130.h,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                itemCount: state.services.length,
+                separatorBuilder: (_, __) => SizedBox(width: 8.w),
+                itemBuilder: (context, index) {
+                  final service = state.services[index];
+                  final serviceName = (service['name_ar'] as String?) ??
+                      (service['name'] as String?) ??
+                      (service['service_name_ar'] as String?) ??
+                      (service['service_name'] as String?) ??
+                      'خدمة';
+                  return GestureDetector(
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('$serviceName - قريباً', style: const TextStyle(fontFamily: 'Cairo')),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: 110.w,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(12.w),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primary.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.medical_services_outlined, size: 28, color: AppTheme.primary),
+                          ),
+                          SizedBox(height: 8.h),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8.w),
+                            child: Text(
+                              serviceName,
+                              style: TextStyle(fontFamily: 'Cairo', fontSize: 12.sp, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(child: SizedBox(height: 16.h)),
+        ],
         if (state.activeOrders.isNotEmpty) ...[
           SliverToBoxAdapter(
             child: Padding(
@@ -383,6 +470,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
   Widget _buildProfileTab(NurseDashboardLoaded state) {
     final profile = state.profile;
+    final earnings = state.earnings;
+    final stats = state.stats;
     return CustomScrollView(
       slivers: [
         SliverToBoxAdapter(child: _buildHeader('الملف الشخصي')),
@@ -398,7 +487,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 ),
                 SizedBox(height: 12.h),
                 Text(
-                  profile['name'] as String? ?? profile['full_name'] as String? ?? profile['username'] as String? ?? 'ممرض',
+                  profile['full_name'] as String? ?? profile['name'] as String? ?? profile['username'] as String? ?? 'ممرض',
                   style: TextStyle(
                     fontFamily: 'Cairo',
                     fontSize: 20.sp,
@@ -412,13 +501,93 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                   style: TextStyle(fontFamily: 'Cairo', fontSize: 14.sp, color: AppTheme.textSecondary),
                 ),
                 SizedBox(height: 24.h),
-                _ProfileField(label: 'الاسم', value: profile['name'] as String? ?? profile['full_name'] as String? ?? ''),
+                _ProfileField(label: 'الاسم', value: profile['full_name'] as String? ?? profile['name'] as String? ?? ''),
                 _ProfileField(label: 'رقم الهاتف', value: profile['phone'] as String? ?? ''),
                 _ProfileField(label: 'البريد الإلكتروني', value: profile['email'] as String? ?? ''),
                 _ProfileField(label: 'العنوان', value: profile['address'] as String? ?? 'غير محدد'),
                 _ProfileField(label: 'الجنس', value: profile['gender'] as String? ?? 'غير محدد'),
-                _ProfileField(label: 'رصيد المحفظة', value: '${profile['wallet'] ?? profile['wallet_balance'] ?? 0} ج.م'),
+                _ProfileField(label: 'رقم المحفظة', value: profile['wallet_number'] as String? ?? 'غير محدد'),
+                if (profile['interview_date'] != null)
+                  _ProfileField(label: 'تاريخ المقابلة', value: profile['interview_date'] as String? ?? ''),
+                SizedBox(height: 16.h),
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(16.w),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [Color(0xFF0d9488), Color(0xFF14b8a6)]),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 4))],
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'الأرباح',
+                        style: TextStyle(fontFamily: 'Cairo', fontSize: 13.sp, color: Colors.white70),
+                      ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        '${earnings.totalMonth.toStringAsFixed(2)} ج.م',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 24.sp,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(height: 8.h),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          Column(
+                            children: [
+                              Text(
+                                '${earnings.completedOrders}',
+                                style: TextStyle(fontFamily: 'Cairo', fontSize: 16.sp, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                              Text(
+                                'طلبات منجزة',
+                                style: TextStyle(fontFamily: 'Cairo', fontSize: 11.sp, color: Colors.white70),
+                              ),
+                            ],
+                          ),
+                          Column(
+                            children: [
+                              Text(
+                                '${stats['avg_rating'] ?? stats['avgRating'] ?? 0}',
+                                style: TextStyle(fontFamily: 'Cairo', fontSize: 16.sp, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                              Text(
+                                'متوسط التقييم',
+                                style: TextStyle(fontFamily: 'Cairo', fontSize: 11.sp, color: Colors.white70),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ],
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(child: SizedBox(height: 24.h)),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            child: OutlinedButton.icon(
+              onPressed: () => context.read<AuthBloc>().add(LogoutEvent()),
+              icon: const Icon(Icons.logout, color: AppTheme.error),
+              label: Text(
+                'تسجيل الخروج',
+                style: TextStyle(fontFamily: 'Cairo', fontSize: 14.sp, color: AppTheme.error),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: AppTheme.error.withOpacity(0.3)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                padding: EdgeInsets.symmetric(vertical: 14.h),
+                minimumSize: Size(double.infinity, 52.h),
+              ),
             ),
           ),
         ),
@@ -441,7 +610,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 Expanded(
                   child: _StatCard(
                     icon: Icons.calculate_rounded,
-                    label: 'الإجمالي',
+                    label: 'إجمالي الأرباح',
                     value: '${earnings.totalMonth.toStringAsFixed(2)} ج.م',
                     gradient: const LinearGradient(colors: [Color(0xFF0d9488), Color(0xFF14b8a6)]),
                   ),
@@ -449,10 +618,10 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 SizedBox(width: 8.w),
                 Expanded(
                   child: _StatCard(
-                    icon: Icons.remove_circle_outline,
-                    label: 'الخصم',
-                    value: '${earnings.deducted.toStringAsFixed(2)} ج.م',
-                    gradient: const LinearGradient(colors: [Color(0xFFef4444), Color(0xFFf87171)]),
+                    icon: Icons.check_circle_rounded,
+                    label: 'الطلبات المنجزة',
+                    value: '${earnings.completedOrders}',
+                    gradient: const LinearGradient(colors: [Color(0xFF06b6d4), Color(0xFF22d3ee)]),
                   ),
                 ),
               ],

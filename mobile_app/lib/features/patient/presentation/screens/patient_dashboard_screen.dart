@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mongez/core/theme/app_theme.dart';
@@ -5,8 +7,11 @@ import 'package:mongez/features/home/domain/entities/area_entity.dart';
 import 'package:mongez/features/home/domain/entities/service_entity.dart';
 import 'package:mongez/features/home/presentation/bloc/home_bloc.dart';
 import 'package:mongez/features/patient/domain/entities/order_entity.dart';
-import 'package:mongez/features/patient/domain/repositories/patient_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:mongez/features/patient/presentation/bloc/patient_bloc.dart';
+import 'package:mongez/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:mongez/features/auth/presentation/bloc/auth_event.dart';
 
 class PatientDashboardScreen extends StatefulWidget {
   const PatientDashboardScreen({super.key});
@@ -17,18 +22,52 @@ class PatientDashboardScreen extends StatefulWidget {
 
 class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   int _currentTab = 0;
+  final _addressController = TextEditingController();
+  PatientDashboardLoaded? _lastLoaded;
+  final Set<String> _ratedOrderIds = {};
 
   @override
   void initState() {
     super.initState();
-    context.read<PatientBloc>().add(const LoadPatientDashboard());
-    context.read<HomeBloc>().add(const HomePageLoaded());
+    _loadRatedOrderIds();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<PatientBloc>().add(const LoadPatientDashboard());
+      context.read<HomeBloc>().add(const HomePageLoaded());
+    });
+  }
+
+  Future<void> _loadRatedOrderIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString('rated_order_ids');
+    if (data != null) {
+      setState(() {
+        _ratedOrderIds.addAll((jsonDecode(data) as List).cast<String>());
+      });
+    }
+  }
+
+  Future<void> _saveRatedOrderIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('rated_order_ids', jsonEncode(_ratedOrderIds.toList()));
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocListener<PatientBloc, PatientState>(
       listener: (context, state) {
+        if (state is PatientDashboardLoaded) {
+          _lastLoaded = state;
+        }
+        if (state is PatientError && _lastLoaded != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message, style: const TextStyle(fontFamily: 'Cairo')),
+              backgroundColor: AppTheme.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
+        }
         if (state is OrderCreated) {
           showDialog(
             context: context,
@@ -74,7 +113,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message, style: const TextStyle(fontFamily: 'Cairo')),
-              backgroundColor: const Color(0xFF10B981),
+              backgroundColor: AppTheme.success,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
@@ -85,10 +124,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       child: Scaffold(
         body: BlocBuilder<PatientBloc, PatientState>(
           builder: (context, state) {
-            if (state is PatientLoading && state is! PatientDashboardLoaded) {
+            if (state is PatientLoading && _lastLoaded == null) {
               return const Center(child: CircularProgressIndicator());
             }
-            if (state is PatientError) {
+            if (state is PatientError && _lastLoaded == null) {
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(32),
@@ -132,9 +171,9 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   }
 
   Widget _buildProfileTab(BuildContext context, PatientState state) {
-    PatientProfile? profile;
-    if (state is PatientDashboardLoaded) {
-      profile = state.profile;
+    final profile = state is PatientDashboardLoaded ? state.profile : null;
+    if (profile != null && _addressController.text.isEmpty) {
+      _addressController.text = profile.address;
     }
     return SafeArea(
       child: SingleChildScrollView(
@@ -146,7 +185,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               padding: const EdgeInsets.all(24),
               width: double.infinity,
               decoration: BoxDecoration(
-                gradient: AppTheme.headerGradient,
+                gradient: AppTheme.heroGradient,
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Column(
@@ -181,7 +220,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             const Text('العنوان', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1F2937), fontFamily: 'Cairo')),
             const SizedBox(height: 8),
             TextField(
-              controller: TextEditingController(text: profile?.address ?? ''),
+              controller: _addressController,
               decoration: InputDecoration(
                 hintText: 'أدخل عنوانك',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
@@ -194,12 +233,30 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               width: double.infinity,
               height: 52,
               child: ElevatedButton(
-                onPressed: () {},
+                onPressed: () {
+                  if (_addressController.text.trim().isNotEmpty) {
+                    context.read<PatientBloc>().add(UpdateAddress(address: _addressController.text.trim()));
+                  }
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0d9488),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
                 child: const Text('حفظ التغييرات', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Cairo')),
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: () => context.read<AuthBloc>().add(LogoutEvent()),
+                icon: const Icon(Icons.logout, color: Colors.white),
+                label: const Text('تسجيل الخروج', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Cairo')),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEF4444),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
               ),
             ),
           ],
@@ -262,14 +319,18 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     final statusColors = {
       'pending': const Color(0xFFF59E0B),
       'accepted': const Color(0xFF06b6d4),
+      'active': const Color(0xFF06b6d4),
       'in_progress': const Color(0xFF3B82F6),
+      'awaiting_completion': const Color(0xFF8B5CF6),
       'completed': const Color(0xFF10B981),
       'cancelled': const Color(0xFFEF4444),
     };
     final statusLabels = {
       'pending': 'قيد الانتظار',
       'accepted': 'تم القبول',
+      'active': 'نشط',
       'in_progress': 'قيد التنفيذ',
+      'awaiting_completion': 'بانتظار التأكيد',
       'completed': 'مكتمل',
       'cancelled': 'ملغي',
     };
@@ -313,7 +374,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               const SizedBox(width: 4),
               Text(order.area, style: TextStyle(fontSize: 12, color: Colors.grey[500], fontFamily: 'Cairo')),
               const Spacer(),
-              Text('${order.totalPrice.toStringAsFixed(0)} ر.س', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0d9488), fontSize: 14, fontFamily: 'Cairo')),
+              Text('${order.totalPrice.toStringAsFixed(0)} ج.م', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0d9488), fontSize: 14, fontFamily: 'Cairo')),
             ],
           ),
           const SizedBox(height: 4),
@@ -321,7 +382,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             order.date.toString().substring(0, 16),
             style: TextStyle(fontSize: 11, color: Colors.grey[400], fontFamily: 'Cairo'),
           ),
-          if (order.status == 'accepted' || order.status == 'in_progress') ...[
+          if (order.status == 'in_progress' || order.status == 'awaiting_completion') ...[
             const SizedBox(height: 12),
             Row(
               children: [
@@ -334,7 +395,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                         backgroundColor: const Color(0xFF10B981),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text('تأكيد الاكتمال', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
+                      child: Text(
+                        order.patientConfirmedCompletion ? 'بانتظار الممرض' : 'تأكيد الإنجاز',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'Cairo'),
+                      ),
                     ),
                   ),
                 ),
@@ -356,21 +420,54 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               ],
             ),
           ],
-          if (order.status == 'completed' && order.rating == null) ...[
+          if (order.status == 'accepted' || order.status == 'active') ...[
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               height: 40,
-              child: ElevatedButton.icon(
-                onPressed: () => _showRatingDialog(context, order.id),
-                icon: const Icon(Icons.star, size: 18),
-                label: const Text('تقييم الخدمة', style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF59E0B),
+              child: OutlinedButton(
+                onPressed: () => _showCancelConfirmDialog(context, order.id),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFEF4444),
+                  side: const BorderSide(color: Color(0xFFEF4444)),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
+                child: const Text('إلغاء', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
               ),
             ),
+          ],
+          if (order.status == 'completed') ...[
+            const SizedBox(height: 12),
+            if (!_ratedOrderIds.contains(order.id) && order.rating == null)
+              SizedBox(
+                width: double.infinity,
+                height: 40,
+                child: ElevatedButton.icon(
+                  onPressed: () => _showRatingDialog(context, order.id),
+                  icon: const Icon(Icons.star, size: 18),
+                  label: const Text('تقييم الخدمة', style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF59E0B),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD1FAE5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle, size: 18, color: Color(0xFF10B981)),
+                    SizedBox(width: 8),
+                    Text('تم التقييم', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF065F46), fontFamily: 'Cairo')),
+                  ],
+                ),
+              ),
           ],
           const SizedBox(height: 8),
           GestureDetector(
@@ -469,6 +566,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                 height: 52,
                 child: ElevatedButton(
                   onPressed: () {
+                    setState(() {
+                      _ratedOrderIds.add(orderId);
+                      _saveRatedOrderIds();
+                    });
                     context.read<PatientBloc>().add(RateOrder(id: orderId, score: selectedScore, comment: commentController.text.isEmpty ? null : commentController.text));
                     Navigator.pop(ctx);
                   },
@@ -518,9 +619,31 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             _detailRow('رقم الهاتف', order.patientPhone),
             _detailRow('العنوان', order.patientAddress),
             _detailRow('المنطقة', order.area),
-            _detailRow('الخدمات', order.services.join('، ')),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: 100, child: Text('الخدمات', style: TextStyle(fontSize: 13, color: Colors.grey[500], fontFamily: 'Cairo'))),
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: order.services.map((s) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDFA),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(s, style: const TextStyle(fontSize: 12, color: Color(0xFF0d9488), fontFamily: 'Cairo')),
+                      )).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             if (order.nurseName != null) _detailRow('الممرض', order.nurseName!),
-            _detailRow('الإجمالي', '${order.totalPrice.toStringAsFixed(0)} ر.س'),
+            _detailRow('الإجمالي', '${order.totalPrice.toStringAsFixed(0)} ج.م'),
             _detailRow('التاريخ', order.date.toString().substring(0, 16)),
             if (order.rating != null) _detailRow('التقييم', '${'★' * order.rating!}${'☆' * (5 - order.rating!)}'),
             const SizedBox(height: 16),
@@ -565,6 +688,7 @@ class _OrderWizard extends StatefulWidget {
 
 class _OrderWizardState extends State<_OrderWizard> {
   int _step = 1;
+  bool _isSubmitting = false;
   final Set<String> _selectedServiceIds = {};
   String? _selectedAreaId;
   String _address = '';
@@ -587,6 +711,19 @@ class _OrderWizardState extends State<_OrderWizard> {
     setState(() => _totalPrice = total);
   }
 
+  double _getTotalWithArea() {
+    double total = _totalPrice;
+    if (_selectedAreaId != null) {
+      for (final a in widget.areas) {
+        if (a.id == _selectedAreaId) {
+          total += a.price;
+          break;
+        }
+      }
+    }
+    return total;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -601,7 +738,26 @@ class _OrderWizardState extends State<_OrderWizard> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
+    return BlocListener<PatientBloc, PatientState>(
+      listener: (context, state) {
+        if (state is PatientError) {
+          if (_isSubmitting) setState(() => _isSubmitting = false);
+        }
+        if (state is OrderCreated) {
+          setState(() {
+            _isSubmitting = false;
+            _step = 1;
+            _selectedServiceIds.clear();
+            _selectedAreaId = null;
+            _address = '';
+            _addressController.clear();
+            _fullCareHours = null;
+            _fullCareGender = null;
+            _totalPrice = 0;
+          });
+        }
+      },
+      child: SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -611,7 +767,7 @@ class _OrderWizardState extends State<_OrderWizard> {
               padding: const EdgeInsets.all(24),
               width: double.infinity,
               decoration: BoxDecoration(
-                gradient: AppTheme.headerGradient,
+                gradient: AppTheme.heroGradient,
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Column(
@@ -630,6 +786,7 @@ class _OrderWizardState extends State<_OrderWizard> {
             if (_step == 2) _buildStep2(),
             if (_step == 3) _buildStep3(),
           ],
+          ),
         ),
       ),
     );
@@ -705,16 +862,11 @@ class _OrderWizardState extends State<_OrderWizard> {
         const SizedBox(height: 4),
         Text('يمكنك اختيار خدمة أو أكثر', style: TextStyle(fontSize: 13, color: Colors.grey[500], fontFamily: 'Cairo')),
         const SizedBox(height: 16),
-        GridView.builder(
+        ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.0,
-          ),
           itemCount: widget.services.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (_, index) {
             final svc = widget.services[index];
             final selected = _selectedServiceIds.contains(svc.id);
@@ -730,7 +882,7 @@ class _OrderWizardState extends State<_OrderWizard> {
                 });
               },
               child: Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 decoration: BoxDecoration(
                   color: selected ? const Color(0xFFF0FDFA) : Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -746,29 +898,34 @@ class _OrderWizardState extends State<_OrderWizard> {
                     ),
                   ],
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Row(
                   children: [
-                    Text(svc.icon, style: const TextStyle(fontSize: 32)),
-                    const SizedBox(height: 8),
-                    Text(svc.nameAr, textAlign: TextAlign.center, style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: selected ? const Color(0xFF0d9488) : const Color(0xFF1F2937),
-                      fontFamily: 'Cairo',
-                    )),
-                    const SizedBox(height: 4),
-                    Text('${svc.price.toStringAsFixed(0)} ر.س${svc.perHour ? '/ساعة' : ''}',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF0d9488), fontFamily: 'Cairo')),
+                    Text(svc.icon, style: const TextStyle(fontSize: 40)),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(svc.nameAr, style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: selected ? const Color(0xFF0d9488) : const Color(0xFF1F2937),
+                            fontFamily: 'Cairo',
+                          )),
+                          const SizedBox(height: 4),
+                          Text('${svc.price.toStringAsFixed(0)} ج.م${svc.perHour ? '/ساعة' : ''}',
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0d9488), fontFamily: 'Cairo')),
+                        ],
+                      ),
+                    ),
                     if (selected)
                       Container(
-                        margin: const EdgeInsets.only(top: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: const Color(0xFF0d9488),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Text('محدد', style: TextStyle(fontSize: 10, color: Colors.white, fontFamily: 'Cairo')),
+                        child: const Text('محدد', style: TextStyle(fontSize: 11, color: Colors.white, fontFamily: 'Cairo')),
                       ),
                   ],
                 ),
@@ -841,7 +998,7 @@ class _OrderWizardState extends State<_OrderWizard> {
             child: Row(
               children: [
                 const Text('المجموع التقريبي: ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'Cairo')),
-                Text('${_totalPrice.toStringAsFixed(0)} ر.س', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0d9488), fontFamily: 'Cairo')),
+                Text('${_totalPrice.toStringAsFixed(0)} ج.م', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0d9488), fontFamily: 'Cairo')),
               ],
             ),
           ),
@@ -919,7 +1076,7 @@ class _OrderWizardState extends State<_OrderWizard> {
                           fontFamily: 'Cairo',
                         )),
                         const Spacer(),
-                        Text('${area.price.toStringAsFixed(0)} ر.س', style: TextStyle(
+                        Text('${area.price.toStringAsFixed(0)} ج.م', style: TextStyle(
                           fontSize: 14, fontWeight: FontWeight.bold,
                           color: selected ? const Color(0xFF0d9488) : Colors.grey[600],
                           fontFamily: 'Cairo',
@@ -964,7 +1121,7 @@ class _OrderWizardState extends State<_OrderWizard> {
               if (_fullCareGender != null)
                 Text('الجنس المفضل: ${_fullCareGender == 'male' ? 'ذكر' : 'أنثى'}', style: TextStyle(fontSize: 13, color: Colors.grey[700], fontFamily: 'Cairo')),
               const SizedBox(height: 4),
-              Text('الإجمالي التقريبي: ${_totalPrice.toStringAsFixed(0)} ر.س',
+              Text('الإجمالي التقريبي: ${_getTotalWithArea().toStringAsFixed(0)} ج.م',
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0d9488), fontFamily: 'Cairo')),
             ],
           ),
@@ -1030,7 +1187,7 @@ class _OrderWizardState extends State<_OrderWizard> {
               if (_fullCareHours != null) _summaryRow('عدد الساعات', '$_fullCareHours ساعة'),
               if (_fullCareGender != null) _summaryRow('الجنس المفضل', _fullCareGender == 'male' ? 'ذكر' : 'أنثى'),
               const Divider(height: 24),
-              _summaryRow('الإجمالي التقريبي', '${_totalPrice.toStringAsFixed(0)} ر.س',
+              _summaryRow('الإجمالي التقريبي', '${_getTotalWithArea().toStringAsFixed(0)} ج.م',
                 valueStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0d9488), fontFamily: 'Cairo')),
             ],
           ),
@@ -1078,12 +1235,22 @@ class _OrderWizardState extends State<_OrderWizard> {
               child: SizedBox(
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: () => _submitOrder(),
+                  onPressed: _isSubmitting ? null : () => _submitOrder(),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0d9488),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    disabledBackgroundColor: Colors.grey[300],
                   ),
-                  child: const Text('تأكيد وطلب', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Cairo')),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text('تأكيد وطلب', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Cairo')),
                 ),
               ),
             ),
@@ -1109,6 +1276,7 @@ class _OrderWizardState extends State<_OrderWizard> {
   }
 
   void _submitOrder() {
+    setState(() => _isSubmitting = true);
     context.read<PatientBloc>().add(CreateOrder(
       services: _selectedServiceIds.toList(),
       areaId: _selectedAreaId!,

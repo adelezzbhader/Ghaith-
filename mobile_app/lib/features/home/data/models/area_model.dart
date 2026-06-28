@@ -13,7 +13,7 @@ class AreaModel extends AreaEntity {
       id: json['id'].toString(),
       nameAr: json['name_ar'] ?? '',
       nameEn: json['name_en'] ?? '',
-      price: (json['price'] ?? 0).toDouble(),
+      price: (json['price'] is num) ? (json['price'] as num).toDouble() : double.tryParse(json['price']?.toString() ?? '0') ?? 0,
     );
   }
 

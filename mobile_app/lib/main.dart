@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:mongez/core/localization/localization_cubit.dart';
 import 'package:mongez/core/theme/app_theme.dart';
 import 'package:mongez/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:mongez/features/auth/presentation/bloc/auth_event.dart';
+import 'package:mongez/features/home/presentation/bloc/home_bloc.dart';
+import 'package:mongez/features/nurse/presentation/bloc/nurse_bloc.dart';
+import 'package:mongez/features/patient/presentation/bloc/patient_bloc.dart';
 import 'package:mongez/injection_container.dart' as di;
 import 'package:mongez/router/app_router.dart';
 
@@ -28,6 +31,7 @@ class _GhaithAppState extends State<GhaithApp> {
   void initState() {
     super.initState();
     final authBloc = di.sl<AuthBloc>();
+    authBloc.add(const CheckAuthEvent());
     _appRouter = AppRouter(authBloc: authBloc);
   }
 
@@ -40,29 +44,23 @@ class _GhaithAppState extends State<GhaithApp> {
       builder: (context, child) {
         return MultiBlocProvider(
           providers: [
-            BlocProvider(create: (_) => di.sl<LocalizationCubit>()),
             BlocProvider(create: (_) => di.sl<AuthBloc>()),
+            BlocProvider(create: (_) => di.sl<HomeBloc>()),
+            BlocProvider(create: (_) => di.sl<PatientBloc>()),
+            BlocProvider(create: (_) => di.sl<NurseBloc>()),
           ],
-          child: BlocBuilder<LocalizationCubit, Locale>(
-            builder: (context, locale) {
-              final isRtl = locale.languageCode == 'ar';
-              return Directionality(
-                textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
-                child: MaterialApp.router(
-                  title: 'غيث',
-                  debugShowCheckedModeBanner: false,
-                  locale: locale,
-                  supportedLocales: const [Locale('ar'), Locale('en')],
-                  localizationsDelegates: const [
-                    GlobalMaterialLocalizations.delegate,
-                    GlobalWidgetsLocalizations.delegate,
-                    GlobalCupertinoLocalizations.delegate,
-                  ],
-                  theme: AppTheme.lightTheme,
-                  routerConfig: _appRouter.router,
-                ),
-              );
-            },
+          child: MaterialApp.router(
+            title: 'غيث',
+            debugShowCheckedModeBanner: false,
+            locale: const Locale('ar'),
+            supportedLocales: const [Locale('ar')],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: AppTheme.lightTheme,
+            routerConfig: _appRouter.router,
           ),
         );
       },

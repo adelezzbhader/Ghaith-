@@ -18,7 +18,7 @@ class NurseRepositoryImpl implements NurseRepository {
       final result = await _remoteDataSource.getProfile();
       return Right(result);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(ServerFailure(e.message, fieldErrors: e.fieldErrors));
     } catch (e) {
       return Left(ServerFailure('حدث خطأ غير متوقع: $e'));
     }
@@ -30,7 +30,7 @@ class NurseRepositoryImpl implements NurseRepository {
       final result = await _remoteDataSource.getActiveOrders();
       return Right(result);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(ServerFailure(e.message, fieldErrors: e.fieldErrors));
     } catch (e) {
       return Left(ServerFailure('حدث خطأ غير متوقع: $e'));
     }
@@ -42,7 +42,7 @@ class NurseRepositoryImpl implements NurseRepository {
       final result = await _remoteDataSource.getMyOrders();
       return Right(result);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(ServerFailure(e.message, fieldErrors: e.fieldErrors));
     } catch (e) {
       return Left(ServerFailure('حدث خطأ غير متوقع: $e'));
     }
@@ -54,7 +54,7 @@ class NurseRepositoryImpl implements NurseRepository {
       final result = await _remoteDataSource.acceptOrder(id);
       return Right(result);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(ServerFailure(e.message, fieldErrors: e.fieldErrors));
     } catch (e) {
       return Left(ServerFailure('حدث خطأ غير متوقع: $e'));
     }
@@ -66,7 +66,7 @@ class NurseRepositoryImpl implements NurseRepository {
       final result = await _remoteDataSource.completeOrder(id);
       return Right(result);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(ServerFailure(e.message, fieldErrors: e.fieldErrors));
     } catch (e) {
       return Left(ServerFailure('حدث خطأ غير متوقع: $e'));
     }
@@ -78,7 +78,7 @@ class NurseRepositoryImpl implements NurseRepository {
       await _remoteDataSource.cancelOrder(id);
       return const Right(null);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(ServerFailure(e.message, fieldErrors: e.fieldErrors));
     } catch (e) {
       return Left(ServerFailure('حدث خطأ غير متوقع: $e'));
     }
@@ -90,7 +90,7 @@ class NurseRepositoryImpl implements NurseRepository {
       final result = await _remoteDataSource.getEarnings();
       return Right(result);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(ServerFailure(e.message, fieldErrors: e.fieldErrors));
     } catch (e) {
       return Left(ServerFailure('حدث خطأ غير متوقع: $e'));
     }
@@ -102,7 +102,7 @@ class NurseRepositoryImpl implements NurseRepository {
       final result = await _remoteDataSource.getRatings();
       return Right(result);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(ServerFailure(e.message, fieldErrors: e.fieldErrors));
     } catch (e) {
       return Left(ServerFailure('حدث خطأ غير متوقع: $e'));
     }
@@ -114,7 +114,19 @@ class NurseRepositoryImpl implements NurseRepository {
       final result = await _remoteDataSource.getStats();
       return Right(result);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(ServerFailure(e.message, fieldErrors: e.fieldErrors));
+    } catch (e) {
+      return Left(ServerFailure('حدث خطأ غير متوقع: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Map<String, dynamic>>>> getServices() async {
+    try {
+      final result = await _remoteDataSource.getServices();
+      return Right(result);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message, fieldErrors: e.fieldErrors));
     } catch (e) {
       return Left(ServerFailure('حدث خطأ غير متوقع: $e'));
     }

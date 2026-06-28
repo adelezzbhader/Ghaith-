@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mongez/core/errors/api_error_parser.dart';
 import 'package:mongez/core/errors/failures.dart';
 import 'package:mongez/features/patient/domain/entities/order_entity.dart';
 import 'package:mongez/features/patient/domain/repositories/patient_repository.dart';
@@ -149,25 +150,31 @@ class PatientBloc extends Bloc<PatientEvent, PatientState> {
 
   Future<void> _onLoadDashboard(LoadPatientDashboard event, Emitter<PatientState> emit) async {
     emit(const PatientLoading());
-    final results = await Future.wait([
-      getPatientOrdersUseCase.call(),
-      getPatientProfileUseCase.call(),
-    ]);
+    try {
+      final results = await Future.wait([
+        getPatientOrdersUseCase.call(),
+        getPatientProfileUseCase.call(),
+      ]);
 
-    final ordersResult = results[0] as Either<Failure, List<OrderEntity>>;
-    final profileResult = results[1] as Either<Failure, PatientProfile>;
+      final ordersResult = results[0] as Either<Failure, List<OrderEntity>>;
+      final profileResult = results[1] as Either<Failure, PatientProfile>;
 
-    final orders = ordersResult.fold((l) => <OrderEntity>[], (r) => r);
-    final profile = profileResult.fold(
-      (l) => PatientProfile(name: '', phone: '', email: ''),
-      (r) => r,
-    );
+      final orders = ordersResult.fold((l) => <OrderEntity>[], (r) => r);
+      final profile = profileResult.fold(
+        (l) => PatientProfile(name: '', phone: '', email: ''),
+        (r) => r,
+      );
 
-    emit(PatientDashboardLoaded(orders: orders, profile: profile));
+      emit(PatientDashboardLoaded(orders: orders, profile: profile));
+    } catch (e) {
+      final parsed = e is Exception
+          ? ApiErrorParser.fromException(e)
+          : ApiErrorParser();
+      emit(PatientError(message: parsed.generalMessage));
+    }
   }
 
   Future<void> _onCreateOrder(CreateOrder event, Emitter<PatientState> emit) async {
-    emit(const PatientLoading());
     final result = await createOrderUseCase.call(
       areaId: event.areaId,
       address: event.address,
@@ -182,7 +189,6 @@ class PatientBloc extends Bloc<PatientEvent, PatientState> {
   }
 
   Future<void> _onCompleteOrder(CompleteOrder event, Emitter<PatientState> emit) async {
-    emit(const PatientLoading());
     final result = await completeOrderUseCase.call(event.id);
     result.fold(
       (failure) => emit(PatientError(message: failure.message)),
@@ -191,7 +197,6 @@ class PatientBloc extends Bloc<PatientEvent, PatientState> {
   }
 
   Future<void> _onCancelOrder(CancelOrder event, Emitter<PatientState> emit) async {
-    emit(const PatientLoading());
     final result = await cancelOrderUseCase.call(event.id);
     result.fold(
       (failure) => emit(PatientError(message: failure.message)),
@@ -200,7 +205,6 @@ class PatientBloc extends Bloc<PatientEvent, PatientState> {
   }
 
   Future<void> _onRateOrder(RateOrder event, Emitter<PatientState> emit) async {
-    emit(const PatientLoading());
     final result = await rateOrderUseCase.call(event.id, score: event.score, comment: event.comment);
     result.fold(
       (failure) => emit(PatientError(message: failure.message)),
@@ -209,7 +213,6 @@ class PatientBloc extends Bloc<PatientEvent, PatientState> {
   }
 
   Future<void> _onUpdateAddress(UpdateAddress event, Emitter<PatientState> emit) async {
-    emit(const PatientLoading());
     final result = await updateAddressUseCase.call(event.address);
     result.fold(
       (failure) => emit(PatientError(message: failure.message)),

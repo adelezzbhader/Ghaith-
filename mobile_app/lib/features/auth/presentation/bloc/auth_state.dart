@@ -24,11 +24,12 @@ class AuthAuthenticated extends AuthState {
 
 class AuthError extends AuthState {
   final String message;
+  final Map<String, List<String>> fieldErrors;
 
-  const AuthError({required this.message});
+  const AuthError({required this.message, this.fieldErrors = const {}});
 
   @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [message, fieldErrors];
 }
 
 class AuthSuccess extends AuthState {

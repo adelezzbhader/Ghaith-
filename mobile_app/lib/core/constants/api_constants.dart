@@ -1,5 +1,15 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform, kIsWeb;
+
 class ApiConstants {
-  static const String baseUrl = 'https://Adel101.pythonanywhere.com/api/v1';
+  static String get baseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:8000/api/v1';
+    }
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:8000/api/v1';
+    }
+    return 'http://localhost:8000/api/v1';
+  }
   static const String login = '/auth/login/';
   static const String registerNurse = '/auth/register/nurse/';
   static const String registerPatient = '/auth/register/patient/';

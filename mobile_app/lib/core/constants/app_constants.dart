@@ -7,6 +7,7 @@ class AppConstants {
   static const int connectTimeout = 15000;
   static const int receiveTimeout = 15000;
   static const String tokenKey = 'ghaith_token';
+  static const String refreshTokenKey = 'ghaith_refresh_token';
   static const String userKey = 'ghaith_user';
   static const String langKey = 'ghaith_lang';
 }

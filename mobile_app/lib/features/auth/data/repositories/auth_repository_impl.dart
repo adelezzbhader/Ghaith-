@@ -1,20 +1,53 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mongez/core/constants/app_constants.dart';
+import 'package:mongez/core/errors/api_error_parser.dart';
 import 'package:mongez/core/errors/failures.dart';
+import 'package:mongez/core/storage/secure_storage.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_data_source.dart';
+import '../models/login_response_model.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource _remoteDataSource;
-  final FlutterSecureStorage _storage;
+  final SecureStorage _storage;
 
   AuthRepositoryImpl(this._remoteDataSource, this._storage);
+
+  Failure _fromDioException(DioException e) {
+    final parsed = ApiErrorParser.fromDioError(e);
+    final isNetwork = e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.connectionError;
+    if (isNetwork) {
+      return NetworkFailure(parsed.generalMessage);
+    }
+    if (e.response?.statusCode == 401) {
+      return AuthFailure(parsed.generalMessage, fieldErrors: parsed.fieldErrors);
+    }
+    return ServerFailure(parsed.generalMessage, fieldErrors: parsed.fieldErrors);
+  }
+
+  Failure _fromGenericException(Object e) {
+    if (e is Exception) {
+      final parsed = ApiErrorParser.fromException(e);
+      return ServerFailure(parsed.generalMessage, fieldErrors: parsed.fieldErrors);
+    }
+    return ServerFailure('حدث خطأ غير متوقع');
+  }
+
+  Future<void> _saveSession(LoginResponseModel response) async {
+    await _storage.write(AppConstants.tokenKey, response.access);
+    if (response.refresh != null) {
+      await _storage.write(AppConstants.refreshTokenKey, response.refresh!);
+    }
+    await _storage.write(AppConstants.userKey, jsonEncode(response.user.toJson()));
+  }
 
   @override
   Future<Either<Failure, UserEntity>> login(
@@ -22,18 +55,12 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final response = await _remoteDataSource.login(email, password, role);
       final user = response.user.toEntity();
-      await _storage.write(key: AppConstants.tokenKey, value: response.access);
-      await _storage.write(
-          key: AppConstants.userKey, value: jsonEncode(response.user.toJson()));
+      await _saveSession(response);
       return Right(user);
     } on DioException catch (e) {
-      final message = _extractErrorMessage(e);
-      if (e.response?.statusCode == 401) {
-        return Left(AuthFailure(message));
-      }
-      return Left(ServerFailure(message));
+      return Left(_fromDioException(e));
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(_fromGenericException(e));
     }
   }
 
@@ -41,26 +68,23 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<Failure, UserEntity>> registerPatient(
       Map<String, dynamic> data) async {
     try {
-      final response =
-          await _remoteDataSource.registerPatient(data);
+      final response = await _remoteDataSource.registerPatient(data);
       final user = response.user.toEntity();
-      await _storage.write(key: AppConstants.tokenKey, value: response.access);
-      await _storage.write(
-          key: AppConstants.userKey, value: jsonEncode(response.user.toJson()));
+      await _saveSession(response);
       return Right(user);
     } on DioException catch (e) {
-      return Left(ServerFailure(_extractErrorMessage(e)));
+      return Left(_fromDioException(e));
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(_fromGenericException(e));
     }
   }
 
   @override
   Future<Either<Failure, void>> registerNurse(
     Map<String, dynamic> data, {
-    File? photo,
-    File? certificate,
-    File? syndicateCard,
+    XFile? photo,
+    XFile? certificate,
+    XFile? syndicateCard,
   }) async {
     try {
       await _remoteDataSource.registerNurse(
@@ -71,36 +95,29 @@ class AuthRepositoryImpl implements AuthRepository {
       );
       return const Right(null);
     } on DioException catch (e) {
-      return Left(ServerFailure(_extractErrorMessage(e)));
+      return Left(_fromDioException(e));
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(_fromGenericException(e));
     }
   }
 
   @override
   Future<Either<Failure, void>> logout() async {
     try {
-      await _storage.delete(key: AppConstants.tokenKey);
-      await _storage.delete(key: AppConstants.userKey);
+      final refreshToken = await _storage.read(AppConstants.refreshTokenKey);
+      if (refreshToken != null && refreshToken.isNotEmpty) {
+        await _remoteDataSource.logout(refreshToken);
+      }
+    } catch (_) {
+      // Continue even if API call fails
+    }
+    try {
+      await _storage.delete(AppConstants.tokenKey);
+      await _storage.delete(AppConstants.refreshTokenKey);
+      await _storage.delete(AppConstants.userKey);
       return const Right(null);
     } catch (e) {
       return Left(CacheFailure('Failed to clear session'));
     }
-  }
-
-  String _extractErrorMessage(DioException e) {
-    if (e.response?.data is Map) {
-      final data = e.response!.data as Map<String, dynamic>;
-      for (final key in data.keys) {
-        final value = data[key];
-        if (value is List && value.isNotEmpty) {
-          return value[0].toString();
-        }
-        if (value is String) {
-          return value;
-        }
-      }
-    }
-    return e.message ?? 'Something went wrong';
   }
 }

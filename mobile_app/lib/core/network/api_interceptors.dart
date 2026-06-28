@@ -1,13 +1,13 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:mongez/core/storage/secure_storage.dart';
 import '../constants/app_constants.dart';
 
 class AuthInterceptor extends Interceptor {
-  final _storage = const FlutterSecureStorage();
+  final _storage = SecureStorage();
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
-    final token = await _storage.read(key: AppConstants.tokenKey);
+    final token = await _storage.read(AppConstants.tokenKey);
     if (token != null && token.isNotEmpty) {
       options.headers['Authorization'] = 'Bearer $token';
     }
@@ -18,8 +18,8 @@ class AuthInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode == 401) {
-      await _storage.delete(key: AppConstants.tokenKey);
-      await _storage.delete(key: AppConstants.userKey);
+      await _storage.delete(AppConstants.tokenKey);
+      await _storage.delete(AppConstants.userKey);
     }
     handler.next(err);
   }

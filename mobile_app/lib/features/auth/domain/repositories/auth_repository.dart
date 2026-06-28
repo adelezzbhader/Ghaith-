@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:dartz/dartz.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/errors/failures.dart';
 import '../entities/user_entity.dart';
 
@@ -13,9 +12,9 @@ abstract class AuthRepository {
 
   Future<Either<Failure, void>> registerNurse(
     Map<String, dynamic> data, {
-    File? photo,
-    File? certificate,
-    File? syndicateCard,
+    XFile? photo,
+    XFile? certificate,
+    XFile? syndicateCard,
   });
 
   Future<Either<Failure, void>> logout();

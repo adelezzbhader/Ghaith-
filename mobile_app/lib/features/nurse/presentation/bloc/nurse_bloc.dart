@@ -10,6 +10,7 @@ import '../../domain/usecases/get_earnings_usecase.dart';
 import '../../domain/usecases/get_nurse_active_orders_usecase.dart';
 import '../../domain/usecases/get_nurse_my_orders_usecase.dart';
 import '../../domain/usecases/get_nurse_profile_usecase.dart';
+import '../../domain/usecases/get_nurse_services_usecase.dart';
 import '../../domain/usecases/get_nurse_stats_usecase.dart';
 import '../../domain/usecases/get_ratings_usecase.dart';
 
@@ -26,6 +27,7 @@ class NurseBloc extends Bloc<NurseEvent, NurseState> {
   final GetRatingsUseCase _getRatings;
   final GetNurseProfileUseCase _getProfile;
   final GetNurseStatsUseCase _getStats;
+  final GetNurseServicesUseCase _getServices;
 
   NurseBloc({
     required GetNurseActiveOrdersUseCase getActiveOrders,
@@ -37,6 +39,7 @@ class NurseBloc extends Bloc<NurseEvent, NurseState> {
     required GetRatingsUseCase getRatings,
     required GetNurseProfileUseCase getProfile,
     required GetNurseStatsUseCase getStats,
+    required GetNurseServicesUseCase getServices,
   })  : _getActiveOrders = getActiveOrders,
         _getMyOrders = getMyOrders,
         _acceptOrder = acceptOrder,
@@ -46,6 +49,7 @@ class NurseBloc extends Bloc<NurseEvent, NurseState> {
         _getRatings = getRatings,
         _getProfile = getProfile,
         _getStats = getStats,
+        _getServices = getServices,
         super(NurseInitial()) {
     on<LoadNurseDashboard>(_onLoadDashboard);
     on<AcceptNurseOrder>(_onAcceptOrder);
@@ -62,6 +66,7 @@ class NurseBloc extends Bloc<NurseEvent, NurseState> {
       final earningsResult = await _getEarnings();
       final ratingsResult = await _getRatings();
       final profileResult = await _getProfile();
+      final servicesResult = await _getServices();
 
       final stats = statsResult.fold((l) => <String, dynamic>{}, (r) => r);
       final activeOrders = activeOrdersResult.fold((l) => <NurseOrderModel>[], (r) => r);
@@ -69,6 +74,7 @@ class NurseBloc extends Bloc<NurseEvent, NurseState> {
       final earnings = earningsResult.fold((l) => EarningsModel(totalMonth: 0, deducted: 0, actual: 0, breakdown: []), (r) => r);
       final ratings = ratingsResult.fold((l) => <RatingModel>[], (r) => r);
       final profile = profileResult.fold((l) => <String, dynamic>{}, (r) => r);
+      final services = servicesResult.fold((l) => <Map<String, dynamic>>[], (r) => r);
 
       emit(NurseDashboardLoaded(
         stats: stats,
@@ -77,6 +83,7 @@ class NurseBloc extends Bloc<NurseEvent, NurseState> {
         earnings: earnings,
         ratings: ratings,
         profile: profile,
+        services: services,
       ));
     } catch (e) {
       emit(NurseError(message: 'حدث خطأ أثناء تحميل البيانات'));
@@ -84,7 +91,6 @@ class NurseBloc extends Bloc<NurseEvent, NurseState> {
   }
 
   Future<void> _onAcceptOrder(AcceptNurseOrder event, Emitter<NurseState> emit) async {
-    emit(NurseLoading());
     final result = await _acceptOrder(event.orderId);
     result.fold(
       (failure) => emit(NurseError(message: failure.message)),
@@ -96,7 +102,6 @@ class NurseBloc extends Bloc<NurseEvent, NurseState> {
   }
 
   Future<void> _onCompleteOrder(CompleteNurseOrder event, Emitter<NurseState> emit) async {
-    emit(NurseLoading());
     final result = await _completeOrder(event.orderId);
     result.fold(
       (failure) => emit(NurseError(message: failure.message)),
@@ -108,7 +113,6 @@ class NurseBloc extends Bloc<NurseEvent, NurseState> {
   }
 
   Future<void> _onCancelOrder(CancelNurseOrder event, Emitter<NurseState> emit) async {
-    emit(NurseLoading());
     final result = await _cancelOrder(event.orderId);
     result.fold(
       (failure) => emit(NurseError(message: failure.message)),

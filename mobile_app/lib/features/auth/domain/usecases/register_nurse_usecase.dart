@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:dartz/dartz.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mongez/core/errors/failures.dart';
 import '../repositories/auth_repository.dart';
 
@@ -11,9 +10,9 @@ class RegisterNurseUseCase {
 
   Future<Either<Failure, void>> call(
     Map<String, dynamic> data, {
-    File? photo,
-    File? certificate,
-    File? syndicateCard,
+    XFile? photo,
+    XFile? certificate,
+    XFile? syndicateCard,
   }) =>
       repository.registerNurse(
         data,

@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:dio/dio.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mongez/core/constants/api_constants.dart';
 import 'package:mongez/core/network/api_client.dart';
 import '../models/login_response_model.dart';
@@ -20,25 +19,37 @@ class AuthRemoteDataSource {
         'role': role,
       },
     );
-    return LoginResponseModel.fromJson(response.data);
+    final raw = response.data as Map<String, dynamic>;
+    return LoginResponseModel.fromJson(raw['data'] as Map<String, dynamic>? ?? raw);
   }
 
   Future<LoginResponseModel> registerPatient(
       Map<String, dynamic> data) async {
     final payload = _toSnakeCase(data);
+    if (payload['gender'] != null) {
+      payload['gender'] = (payload['gender'] as String).toUpperCase();
+    }
     payload['accepted_terms'] = true;
     final response = await _apiClient.post(
       ApiConstants.registerPatient,
       data: payload,
     );
-    return LoginResponseModel.fromJson(response.data);
+    final raw = response.data as Map<String, dynamic>;
+    return LoginResponseModel.fromJson(raw['data'] as Map<String, dynamic>? ?? raw);
+  }
+
+  Future<void> logout(String refreshToken) async {
+    await _apiClient.post(
+      ApiConstants.logout,
+      data: {'refresh': refreshToken},
+    );
   }
 
   Future<void> registerNurse(
     Map<String, dynamic> data, {
-    File? photo,
-    File? certificate,
-    File? syndicateCard,
+    XFile? photo,
+    XFile? certificate,
+    XFile? syndicateCard,
   }) async {
     final snakeData = _toSnakeCase(data);
     if (snakeData['gender'] != null) {
@@ -52,22 +63,22 @@ class AuthRemoteDataSource {
     if (photo != null) {
       formData.files.add(MapEntry(
         'profile_image',
-        await MultipartFile.fromFile(photo.path,
-            filename: photo.path.split('\\').last),
+        MultipartFile.fromBytes(await photo.readAsBytes(),
+            filename: photo.name),
       ));
     }
     if (certificate != null) {
       formData.files.add(MapEntry(
         'graduation_certificate',
-        await MultipartFile.fromFile(certificate.path,
-            filename: certificate.path.split('\\').last),
+        MultipartFile.fromBytes(await certificate.readAsBytes(),
+            filename: certificate.name),
       ));
     }
     if (syndicateCard != null) {
       formData.files.add(MapEntry(
         'syndicate_card',
-        await MultipartFile.fromFile(syndicateCard.path,
-            filename: syndicateCard.path.split('\\').last),
+        MultipartFile.fromBytes(await syndicateCard.readAsBytes(),
+            filename: syndicateCard.name),
       ));
     }
     await _apiClient.post(

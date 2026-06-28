@@ -10,7 +10,7 @@ class LocalizationCubit extends Cubit<Locale> {
         super(const Locale('ar'));
 
   Future<void> loadLocale() async {
-    final lang = await _storage.getLang();
+    final lang = await _storage.read('lang');
     if (lang == 'en') {
       emit(const Locale('en'));
     } else {
@@ -19,7 +19,7 @@ class LocalizationCubit extends Cubit<Locale> {
   }
 
   Future<void> changeLocale(Locale locale) async {
-    await _storage.saveLang(locale.languageCode);
+    await _storage.write('lang', locale.languageCode);
     emit(locale);
   }
 

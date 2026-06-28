@@ -18,7 +18,7 @@ class HomeRepositoryImpl implements HomeRepository {
       final models = await _remoteDataSource.getServices();
       return Right(models);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(ServerFailure(e.message, fieldErrors: e.fieldErrors));
     }
   }
 
@@ -28,7 +28,7 @@ class HomeRepositoryImpl implements HomeRepository {
       final models = await _remoteDataSource.getAreas();
       return Right(models);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(ServerFailure(e.message, fieldErrors: e.fieldErrors));
     }
   }
 
@@ -38,7 +38,7 @@ class HomeRepositoryImpl implements HomeRepository {
       final model = await _remoteDataSource.getStats();
       return Right(model);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(ServerFailure(e.message, fieldErrors: e.fieldErrors));
     }
   }
 }

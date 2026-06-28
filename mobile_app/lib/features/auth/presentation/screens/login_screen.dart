@@ -19,6 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   String _selectedRole = 'patient';
   bool _obscurePassword = true;
+  Map<String, List<String>> _fieldErrors = {};
 
   @override
   void dispose() {
@@ -27,18 +28,37 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  String? _fieldError(String field) {
+    final errors = _fieldErrors[field];
+    if (errors != null && errors.isNotEmpty) return errors.first;
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthAuthenticated) {
-          _navigateToDashboard(state);
-        } else if (state is AuthError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(state.message),
+              content: const Text('تم تسجيل الدخول بنجاح', style: TextStyle(fontFamily: 'Cairo')),
+              backgroundColor: AppTheme.success,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (context.mounted) _navigateToDashboard(state);
+          });
+        } else if (state is AuthError) {
+          setState(() => _fieldErrors = state.fieldErrors);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message, style: const TextStyle(fontFamily: 'Cairo')),
               backgroundColor: AppTheme.error,
               behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           );
         }
@@ -50,9 +70,12 @@ class _LoginScreenState extends State<LoginScreen> {
               _buildHeader(),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
+                  child: Form(
+                    key: _formKey,
+                    autovalidateMode: _fieldErrors.isNotEmpty
+                        ? AutovalidateMode.onUserInteraction
+                        : AutovalidateMode.disabled,
+                    child: Column(
                     children: [
                       const SizedBox(height: 24),
                       _buildRoleSelector(),
@@ -133,8 +156,6 @@ class _LoginScreenState extends State<LoginScreen> {
         _roleButton('مريض', 'patient', const Color(0xFF06b6d4)),
         const SizedBox(width: 8),
         _roleButton('ممرض', 'nurse', AppTheme.primary),
-        const SizedBox(width: 8),
-        _roleButton('مدير', 'admin', const Color(0xFF8b5cf6)),
       ],
     );
   }
@@ -172,10 +193,20 @@ class _LoginScreenState extends State<LoginScreen> {
     return TextFormField(
       controller: _emailController,
       keyboardType: TextInputType.emailAddress,
+      onChanged: (_) {
+        if (_fieldErrors.containsKey('email') || _fieldErrors.containsKey('non_field_errors')) {
+          setState(() {
+            _fieldErrors.remove('email');
+            _fieldErrors.remove('non_field_errors');
+          });
+          _formKey.currentState?.validate();
+        }
+      },
       decoration: InputDecoration(
         labelText: 'البريد الإلكتروني',
         hintText: 'example@email.com',
         prefixIcon: const Icon(Icons.email_outlined, color: AppTheme.textHint),
+        errorText: _fieldError('email') ?? _fieldError('non_field_errors'),
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
@@ -190,13 +221,21 @@ class _LoginScreenState extends State<LoginScreen> {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppTheme.primary, width: 2),
         ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.error, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.error, width: 1.5),
+        ),
       ),
       validator: (value) {
         if (value == null || value.isEmpty) return 'من فضلك أدخل البريد الإلكتروني';
         if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
           return 'البريد الإلكتروني غير صالح';
         }
-        return null;
+        return _fieldError('email');
       },
     );
   }
@@ -205,6 +244,12 @@ class _LoginScreenState extends State<LoginScreen> {
     return TextFormField(
       controller: _passwordController,
       obscureText: _obscurePassword,
+      onChanged: (_) {
+        if (_fieldErrors.containsKey('password')) {
+          setState(() => _fieldErrors.remove('password'));
+          _formKey.currentState?.validate();
+        }
+      },
       decoration: InputDecoration(
         labelText: 'كلمة المرور',
         hintText: '••••••••',
@@ -216,6 +261,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
         ),
+        errorText: _fieldError('password'),
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
@@ -230,11 +276,19 @@ class _LoginScreenState extends State<LoginScreen> {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppTheme.primary, width: 2),
         ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.error, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.error, width: 1.5),
+        ),
       ),
       validator: (value) {
         if (value == null || value.isEmpty) return 'من فضلك أدخل كلمة المرور';
         if (value.length < 6) return 'كلمة المرور قصيرة جدًا';
-        return null;
+        return _fieldError('password');
       },
     );
   }
@@ -291,9 +345,9 @@ class _LoginScreenState extends State<LoginScreen> {
         TextButton(
           onPressed: () {
             if (_selectedRole == 'nurse') {
-              context.push('/register/nurse');
+              context.push('/nurse-register');
             } else {
-              context.push('/register/patient');
+              context.push('/patient-register');
             }
           },
           child: Text(
@@ -324,13 +378,11 @@ class _LoginScreenState extends State<LoginScreen> {
   void _navigateToDashboard(AuthAuthenticated state) {
     final role = state.user.role;
     if (role == 'patient') {
-      context.go('/patient/dashboard');
+      context.go('/patient');
     } else if (role == 'nurse') {
-      context.go('/nurse/dashboard');
-    } else if (role == 'admin') {
-      context.go('/admin/dashboard');
+      context.go('/nurse');
     } else {
-      context.go('/home');
+      context.go('/login');
     }
   }
 }

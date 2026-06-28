@@ -26,6 +26,7 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _agreedToTerms = false;
+  Map<String, List<String>> _fieldErrors = {};
 
   final List<String> _genders = ['ذكر', 'أنثى'];
 
@@ -40,25 +41,50 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
     super.dispose();
   }
 
+  String? _fieldError(String field) {
+    final errors = _fieldErrors[field];
+    if (errors != null && errors.isNotEmpty) return errors.first;
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthAuthenticated) {
-          final role = state.user.role;
-          if (role == 'patient') {
-            context.go('/patient/dashboard');
-          } else {
-            context.go('/home');
-          }
-        } else if (state is AuthError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppTheme.error,
+              content: const Text('تم إنشاء الحساب بنجاح', style: TextStyle(fontFamily: 'Cairo')),
+              backgroundColor: AppTheme.success,
               behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              duration: const Duration(seconds: 2),
             ),
           );
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (context.mounted) {
+              final role = state.user.role;
+              if (role == 'patient') {
+                context.go('/patient');
+              } else if (role == 'nurse') {
+                context.go('/nurse');
+              } else {
+                context.go('/login');
+              }
+            }
+          });
+        } else if (state is AuthError) {
+          setState(() => _fieldErrors = state.fieldErrors);
+          if (state.fieldErrors.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message, style: const TextStyle(fontFamily: 'Cairo')),
+                backgroundColor: AppTheme.error,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            );
+          }
         }
       },
       child: Scaffold(
@@ -73,6 +99,9 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
           padding: const EdgeInsets.all(24),
           child: Form(
             key: _formKey,
+            autovalidateMode: _fieldErrors.isNotEmpty
+                ? AutovalidateMode.onUserInteraction
+                : AutovalidateMode.disabled,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -98,8 +127,15 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
                   label: 'الاسم الكامل',
                   hint: 'أدخل اسمك الكامل',
                   icon: Icons.person_outline,
+                  errorText: _fieldError('full_name'),
                   validator: (v) =>
-                      v == null || v.isEmpty ? 'من فضلك أدخل اسمك' : null,
+                      v == null || v.isEmpty ? 'من فضلك أدخل اسمك' : _fieldError('full_name'),
+                  onChanged: (_) {
+                    if (_fieldErrors.containsKey('full_name')) {
+                      setState(() => _fieldErrors.remove('full_name'));
+                      _formKey.currentState?.validate();
+                    }
+                  },
                 ),
                 const SizedBox(height: 16),
                 _buildTextField(
@@ -108,10 +144,17 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
                   hint: '05xxxxxxxx',
                   icon: Icons.phone_outlined,
                   keyboardType: TextInputType.phone,
+                  errorText: _fieldError('phone'),
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'من فضلك أدخل رقم هاتفك';
                     if (v.length < 10) return 'رقم الهاتف غير صالح';
-                    return null;
+                    return _fieldError('phone');
+                  },
+                  onChanged: (_) {
+                    if (_fieldErrors.containsKey('phone')) {
+                      setState(() => _fieldErrors.remove('phone'));
+                      _formKey.currentState?.validate();
+                    }
                   },
                 ),
                 const SizedBox(height: 16),
@@ -121,12 +164,19 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
                   hint: 'example@email.com',
                   icon: Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress,
+                  errorText: _fieldError('email'),
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'من فضلك أدخل بريدك الإلكتروني';
                     if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v)) {
                       return 'البريد الإلكتروني غير صالح';
                     }
-                    return null;
+                    return _fieldError('email');
+                  },
+                  onChanged: (_) {
+                    if (_fieldErrors.containsKey('email')) {
+                      setState(() => _fieldErrors.remove('email'));
+                      _formKey.currentState?.validate();
+                    }
                   },
                 ),
                 const SizedBox(height: 16),
@@ -135,8 +185,15 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
                   label: 'العنوان',
                   hint: 'أدخل عنوانك',
                   icon: Icons.location_on_outlined,
+                  errorText: _fieldError('address'),
                   validator: (v) =>
-                      v == null || v.isEmpty ? 'من فضلك أدخل عنوانك' : null,
+                      v == null || v.isEmpty ? 'من فضلك أدخل عنوانك' : _fieldError('address'),
+                  onChanged: (_) {
+                    if (_fieldErrors.containsKey('address')) {
+                      setState(() => _fieldErrors.remove('address'));
+                      _formKey.currentState?.validate();
+                    }
+                  },
                 ),
                 const SizedBox(height: 16),
                 _buildGenderDropdown(),
@@ -147,6 +204,7 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
                   hint: '••••••••',
                   icon: Icons.lock_outline,
                   obscureText: _obscurePassword,
+                  errorText: _fieldError('password'),
                   suffix: IconButton(
                     icon: Icon(
                       _obscurePassword
@@ -160,7 +218,13 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'من فضلك أدخل كلمة المرور';
                     if (v.length < 6) return 'كلمة المرور قصيرة جدًا';
-                    return null;
+                    return _fieldError('password');
+                  },
+                  onChanged: (_) {
+                    if (_fieldErrors.containsKey('password')) {
+                      setState(() => _fieldErrors.remove('password'));
+                      _formKey.currentState?.validate();
+                    }
                   },
                 ),
                 const SizedBox(height: 16),
@@ -170,6 +234,7 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
                   hint: '••••••••',
                   icon: Icons.lock_outline,
                   obscureText: _obscureConfirm,
+                  errorText: _fieldError('confirm_password'),
                   suffix: IconButton(
                     icon: Icon(
                       _obscureConfirm
@@ -183,7 +248,13 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'من فضلك تأكيد كلمة المرور';
                     if (v != _passwordController.text) return 'كلمة المرور غير متطابقة';
-                    return null;
+                    return _fieldError('confirm_password');
+                  },
+                  onChanged: (_) {
+                    if (_fieldErrors.containsKey('confirm_password')) {
+                      setState(() => _fieldErrors.remove('confirm_password'));
+                      _formKey.currentState?.validate();
+                    }
                   },
                 ),
                 const SizedBox(height: 16),
@@ -290,18 +361,22 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
     required IconData icon,
     bool obscureText = false,
     Widget? suffix,
+    String? errorText,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
+    void Function(String)? onChanged,
   }) {
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
+      onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
         prefixIcon: Icon(icon, color: AppTheme.textHint),
         suffixIcon: suffix,
+        errorText: errorText,
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
@@ -315,6 +390,14 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppTheme.primary, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.error, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.error, width: 1.5),
         ),
       ),
       validator: validator,
@@ -328,6 +411,7 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
         labelText: 'الجنس',
         prefixIcon:
             const Icon(Icons.people_outline, color: AppTheme.textHint),
+        errorText: _fieldError('gender'),
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
@@ -342,11 +426,25 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppTheme.primary, width: 2),
         ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.error, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.error, width: 1.5),
+        ),
       ),
       items: _genders.map((g) {
         return DropdownMenuItem(value: g, child: Text(g));
       }).toList(),
-      onChanged: (v) => setState(() => _selectedGender = v ?? 'ذكر'),
+      onChanged: (v) {
+        setState(() {
+          _selectedGender = v ?? 'ذكر';
+          _fieldErrors.remove('gender');
+        });
+        _formKey.currentState?.validate();
+      },
     );
   }
 
@@ -364,7 +462,7 @@ class _PatientRegisterScreenState extends State<PatientRegisterScreen> {
     final agreed = await DisclaimerModal.show(context);
     if (agreed != true) return;
 
-    final genderMap = {'ذكر': 'male', 'أنثى': 'female'};
+    final genderMap = {'ذكر': 'MALE', 'أنثى': 'FEMALE'};
     context.read<AuthBloc>().add(
           RegisterPatientEvent(
             data: {

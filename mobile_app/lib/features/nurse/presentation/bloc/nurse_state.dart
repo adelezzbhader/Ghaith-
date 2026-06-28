@@ -22,6 +22,7 @@ class NurseDashboardLoaded extends NurseState {
   final EarningsModel earnings;
   final List<RatingModel> ratings;
   final Map<String, dynamic> profile;
+  final List<Map<String, dynamic>> services;
 
   const NurseDashboardLoaded({
     required this.stats,
@@ -30,10 +31,11 @@ class NurseDashboardLoaded extends NurseState {
     required this.earnings,
     required this.ratings,
     required this.profile,
+    this.services = const [],
   });
 
   @override
-  List<Object?> get props => [stats, activeOrders, myOrders, earnings, ratings, profile];
+  List<Object?> get props => [stats, activeOrders, myOrders, earnings, ratings, profile, services];
 }
 
 class NurseOrderActionSuccess extends NurseState {

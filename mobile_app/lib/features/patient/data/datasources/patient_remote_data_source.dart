@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:mongez/core/constants/api_constants.dart';
+import 'package:mongez/core/errors/api_error_parser.dart';
 import 'package:mongez/core/errors/exceptions.dart';
 import 'package:mongez/core/network/api_client.dart';
 import 'package:mongez/features/patient/data/models/patient_order_model.dart';
@@ -12,15 +13,30 @@ class PatientRemoteDataSource {
   Future<List<PatientOrderModel>> getOrders() async {
     try {
       final response = await _apiClient.get(ApiConstants.patientOrders);
-      final List<dynamic> data = response.data is List
-          ? response.data
-          : (response.data['results'] ?? response.data['data'] ?? []);
-      return data.map((json) => PatientOrderModel.fromJson(json)).toList();
+      final raw = response.data;
+      List<dynamic> ordersList;
+      if (raw is List) {
+        ordersList = raw;
+      } else if (raw is Map<String, dynamic>) {
+        final inner = raw['data'];
+        if (inner is Map<String, dynamic> && inner['results'] is List) {
+          ordersList = inner['results'] as List;
+        } else if (raw['results'] is List) {
+          ordersList = raw['results'] as List;
+        } else if (raw['orders'] is List) {
+          ordersList = raw['orders'] as List;
+        } else if (raw['data'] is List) {
+          ordersList = raw['data'] as List;
+        } else {
+          ordersList = [];
+        }
+      } else {
+        ordersList = [];
+      }
+      return ordersList.map((json) => PatientOrderModel.fromJson(json)).toList();
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data['message'] ?? e.message ?? 'Failed to load orders',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 
@@ -35,42 +51,39 @@ class PatientRemoteDataSource {
       final body = <String, dynamic>{
         'area_id': areaId,
         'address': address,
-        'services': services,
+        'services': services.map((id) => {'service_id': id, 'quantity': 1}).toList(),
       };
       if (fullCareHours != null) body['full_care_hours'] = fullCareHours;
       if (fullCareGender != null) body['full_care_gender'] = fullCareGender;
 
       final response = await _apiClient.post(ApiConstants.patientOrders, data: body);
-      return PatientOrderModel.fromJson(response.data);
+      final raw = response.data as Map<String, dynamic>;
+      return PatientOrderModel.fromJson(raw['data'] as Map<String, dynamic>? ?? raw);
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data['message'] ?? e.message ?? 'Failed to create order',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 
   Future<PatientOrderModel> completeOrder(String id) async {
     try {
       final response = await _apiClient.post(ApiConstants.patientCompleteOrder(id));
-      return PatientOrderModel.fromJson(response.data);
+      final raw = response.data as Map<String, dynamic>;
+      return PatientOrderModel.fromJson(raw['data'] as Map<String, dynamic>? ?? raw);
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data['message'] ?? e.message ?? 'Failed to complete order',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 
   Future<PatientOrderModel> cancelOrder(String id) async {
     try {
       final response = await _apiClient.post(ApiConstants.patientCancelOrder(id));
-      return PatientOrderModel.fromJson(response.data);
+      final raw = response.data as Map<String, dynamic>;
+      return PatientOrderModel.fromJson(raw['data'] as Map<String, dynamic>? ?? raw);
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data['message'] ?? e.message ?? 'Failed to cancel order',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 
@@ -80,34 +93,30 @@ class PatientRemoteDataSource {
       if (comment != null) body['comment'] = comment;
       await _apiClient.post(ApiConstants.patientRateOrder(id), data: body);
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data['message'] ?? e.message ?? 'Failed to rate order',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 
   Future<Map<String, dynamic>> getProfile() async {
     try {
       final response = await _apiClient.get(ApiConstants.profile);
-      return response.data;
+      final raw = response.data as Map<String, dynamic>;
+      return raw['data'] as Map<String, dynamic>? ?? raw;
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data['message'] ?? e.message ?? 'Failed to load profile',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 
   Future<Map<String, dynamic>> updateAddress(String address) async {
     try {
       final response = await _apiClient.patch(ApiConstants.profile, data: {'address': address});
-      return response.data;
+      final raw = response.data as Map<String, dynamic>;
+      return raw['data'] as Map<String, dynamic>? ?? raw;
     } on DioException catch (e) {
-      throw ServerException(
-        message: e.response?.data['message'] ?? e.message ?? 'Failed to update address',
-        statusCode: e.response?.statusCode,
-      );
+      final parsed = ApiErrorParser.fromDioError(e);
+      throw ServerException(message: parsed.generalMessage, statusCode: parsed.statusCode, fieldErrors: parsed.fieldErrors);
     }
   }
 }

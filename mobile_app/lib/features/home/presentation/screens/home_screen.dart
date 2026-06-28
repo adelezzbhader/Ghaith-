@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mongez/core/constants/app_constants.dart';
 import 'package:mongez/core/theme/app_theme.dart';
 import 'package:mongez/features/home/domain/entities/service_entity.dart';
@@ -27,7 +28,9 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() => _showAppBar = show);
       }
     });
-    context.read<HomeBloc>().add(const HomePageLoaded());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<HomeBloc>().add(const HomePageLoaded());
+    });
   }
 
   @override
@@ -91,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Container(
                       padding: const EdgeInsets.only(top: 8, bottom: 8, left: 16, right: 16),
                       decoration: BoxDecoration(
-                        gradient: AppTheme.headerGradient,
+                        gradient: AppTheme.heroGradient,
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.1),
@@ -104,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         bottom: false,
                         child: Row(
                           children: [
-                            Image.asset('assets/images/logo.png', height: 40, errorBuilder: (_, __, ___) =>
+                            Image.asset('assets/images/mongez.png', height: 40, errorBuilder: (_, __, ___) =>
                               Container(
                                 padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
@@ -120,9 +123,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             const Spacer(),
-                            _buildSmallButton(context, 'دخول كممرض', AppTheme.primary, () {}),
+                            _buildSmallButton(context, 'دخول كممرض', AppTheme.primary, () => context.push('/login')),
                             const SizedBox(width: 8),
-                            _buildSmallButton(context, 'دخول كمريض', AppTheme.secondary, () {}),
+                            _buildSmallButton(context, 'دخول كمريض', AppTheme.secondary, () => context.push('/login')),
                           ],
                         ),
                       ),
@@ -161,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         padding: const EdgeInsets.fromLTRB(24, 32, 24, 48),
         decoration: const BoxDecoration(
-          gradient: AppTheme.headerGradient,
+          gradient: AppTheme.heroGradient,
           borderRadius: BorderRadius.only(bottomLeft: Radius.circular(40), bottomRight: Radius.circular(40)),
         ),
         child: Column(
@@ -217,7 +220,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Expanded(
               child: GestureDetector(
-                onTap: () {},
+                onTap: () => context.push('/login'),
                 child: Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -266,7 +269,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(width: 16),
             Expanded(
               child: GestureDetector(
-                onTap: () {},
+                onTap: () => context.push('/login'),
                 child: Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -672,7 +675,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         fontFamily: 'Cairo',
                       )),
                       const SizedBox(height: 4),
-                      Text('${service.price.toStringAsFixed(0)} ر.س', style: TextStyle(
+                      Text('${service.price.toStringAsFixed(0)} ج.م', style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: const Color(0xFF0d9488),

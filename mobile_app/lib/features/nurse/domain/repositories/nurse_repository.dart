@@ -14,4 +14,5 @@ abstract class NurseRepository {
   Future<Either<Failure, EarningsModel>> getEarnings();
   Future<Either<Failure, List<RatingModel>>> getRatings();
   Future<Either<Failure, Map<String, dynamic>>> getStats();
+  Future<Either<Failure, List<Map<String, dynamic>>>> getServices();
 }

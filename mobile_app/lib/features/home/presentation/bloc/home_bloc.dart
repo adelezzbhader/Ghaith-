@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mongez/core/errors/api_error_parser.dart';
 import 'package:mongez/core/errors/failures.dart';
 import 'package:mongez/features/home/domain/entities/area_entity.dart';
 import 'package:mongez/features/home/domain/entities/service_entity.dart';
@@ -72,23 +73,30 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   Future<void> _onHomePageLoaded(HomePageLoaded event, Emitter<HomeState> emit) async {
     emit(const HomeLoading());
-    final results = await Future.wait([
-      getServicesUseCase.call(),
-      getAreasUseCase.call(),
-      getStatsUseCase.call(),
-    ]);
+    try {
+      final results = await Future.wait([
+        getServicesUseCase.call(),
+        getAreasUseCase.call(),
+        getStatsUseCase.call(),
+      ]);
 
-    final servicesResult = results[0] as Either<Failure, List<ServiceEntity>>;
-    final areasResult = results[1] as Either<Failure, List<AreaEntity>>;
-    final statsResult = results[2] as Either<Failure, StatsEntity>;
+      final servicesResult = results[0] as Either<Failure, List<ServiceEntity>>;
+      final areasResult = results[1] as Either<Failure, List<AreaEntity>>;
+      final statsResult = results[2] as Either<Failure, StatsEntity>;
 
-    final services = servicesResult.fold((l) => <ServiceEntity>[], (r) => r);
-    final areas = areasResult.fold((l) => <AreaEntity>[], (r) => r);
-    final stats = statsResult.fold(
-      (l) => const StatsEntity(dailyRequests: 0, clientTrust: 0, activeNurses: 0),
-      (r) => r,
-    );
+      final services = servicesResult.fold((l) => <ServiceEntity>[], (r) => r);
+      final areas = areasResult.fold((l) => <AreaEntity>[], (r) => r);
+      final stats = statsResult.fold(
+        (l) => const StatsEntity(dailyRequests: 0, clientTrust: 0, activeNurses: 0),
+        (r) => r,
+      );
 
-    emit(HomeLoaded(services: services, areas: areas, stats: stats));
+      emit(HomeLoaded(services: services, areas: areas, stats: stats));
+    } catch (e) {
+      final parsed = e is Exception
+          ? ApiErrorParser.fromException(e)
+          : ApiErrorParser();
+      emit(HomeError(message: parsed.generalMessage));
+    }
   }
 }

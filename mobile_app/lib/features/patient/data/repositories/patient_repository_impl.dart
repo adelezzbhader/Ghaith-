@@ -1,4 +1,6 @@
 import 'package:dartz/dartz.dart';
+import 'package:dio/dio.dart';
+import 'package:mongez/core/errors/api_error_parser.dart';
 import 'package:mongez/core/errors/exceptions.dart';
 import 'package:mongez/core/errors/failures.dart';
 import 'package:mongez/features/patient/data/datasources/patient_remote_data_source.dart';
@@ -10,13 +12,26 @@ class PatientRepositoryImpl implements PatientRepository {
 
   PatientRepositoryImpl(this._remoteDataSource);
 
+  Failure _fromServerException(ServerException e) {
+    return ServerFailure(e.message, fieldErrors: e.fieldErrors);
+  }
+
+  Failure _fromGenericException(Object e) {
+    final parsed = e is DioException
+        ? ApiErrorParser.fromDioError(e)
+        : ApiErrorParser.fromException(e as Exception);
+    return ServerFailure(parsed.generalMessage, fieldErrors: parsed.fieldErrors);
+  }
+
   @override
   Future<Either<Failure, List<OrderEntity>>> getOrders() async {
     try {
       final models = await _remoteDataSource.getOrders();
       return Right(models);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(_fromServerException(e));
+    } catch (e) {
+      return Left(_fromGenericException(e));
     }
   }
 
@@ -38,7 +53,9 @@ class PatientRepositoryImpl implements PatientRepository {
       );
       return Right(model);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(_fromServerException(e));
+    } catch (e) {
+      return Left(_fromGenericException(e));
     }
   }
 
@@ -48,7 +65,9 @@ class PatientRepositoryImpl implements PatientRepository {
       final model = await _remoteDataSource.completeOrder(id);
       return Right(model);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(_fromServerException(e));
+    } catch (e) {
+      return Left(_fromGenericException(e));
     }
   }
 
@@ -58,7 +77,9 @@ class PatientRepositoryImpl implements PatientRepository {
       final model = await _remoteDataSource.cancelOrder(id);
       return Right(model);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(_fromServerException(e));
+    } catch (e) {
+      return Left(_fromGenericException(e));
     }
   }
 
@@ -68,7 +89,9 @@ class PatientRepositoryImpl implements PatientRepository {
       await _remoteDataSource.rateOrder(id, score: score, comment: comment);
       return const Right(null);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(_fromServerException(e));
+    } catch (e) {
+      return Left(_fromGenericException(e));
     }
   }
 
@@ -77,14 +100,16 @@ class PatientRepositoryImpl implements PatientRepository {
     try {
       final data = await _remoteDataSource.getProfile();
       return Right(PatientProfile(
-        name: data['name'] ?? '',
+        name: data['full_name'] ?? data['name'] ?? '',
         phone: data['phone'] ?? '',
         email: data['email'] ?? '',
         gender: data['gender'],
         address: data['address'] ?? '',
       ));
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(_fromServerException(e));
+    } catch (e) {
+      return Left(_fromGenericException(e));
     }
   }
 
@@ -93,14 +118,16 @@ class PatientRepositoryImpl implements PatientRepository {
     try {
       final data = await _remoteDataSource.updateAddress(address);
       return Right(PatientProfile(
-        name: data['name'] ?? '',
+        name: data['full_name'] ?? data['name'] ?? '',
         phone: data['phone'] ?? '',
         email: data['email'] ?? '',
         gender: data['gender'],
         address: data['address'] ?? '',
       ));
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(_fromServerException(e));
+    } catch (e) {
+      return Left(_fromGenericException(e));
     }
   }
 }

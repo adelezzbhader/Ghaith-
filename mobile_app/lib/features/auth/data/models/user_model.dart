@@ -42,7 +42,7 @@ class UserModel extends Equatable {
       phone: json['phone'] as String? ?? json['phone_number'] as String?,
       address: json['address'] as String?,
       gender: json['gender'] as String?,
-      role: json['role'] as String? ?? json['user_type'] as String? ?? 'patient',
+      role: (json['role'] as String? ?? json['user_type'] as String? ?? 'patient').toLowerCase(),
       rating: (json['rating'] as num?)?.toDouble(),
       totalVisits: json['total_visits'] as int? ?? json['visits_count'] as int?,
       monthlyEarnings: (json['monthly_earnings'] as num?)?.toDouble(),

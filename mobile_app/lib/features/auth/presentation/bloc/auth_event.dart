@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:equatable/equatable.dart';
+import 'package:image_picker/image_picker.dart';
 
 abstract class AuthEvent extends Equatable {
   const AuthEvent();
@@ -35,9 +34,9 @@ class RegisterPatientEvent extends AuthEvent {
 
 class RegisterNurseEvent extends AuthEvent {
   final Map<String, dynamic> data;
-  final File? photo;
-  final File? certificate;
-  final File? syndicateCard;
+  final XFile? photo;
+  final XFile? certificate;
+  final XFile? syndicateCard;
 
   const RegisterNurseEvent({
     required this.data,
@@ -52,4 +51,6 @@ class RegisterNurseEvent extends AuthEvent {
 
 class LogoutEvent extends AuthEvent {}
 
-class CheckAuthEvent extends AuthEvent {}
+class CheckAuthEvent extends AuthEvent {
+  const CheckAuthEvent();
+}

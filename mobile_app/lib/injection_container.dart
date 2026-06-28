@@ -1,4 +1,3 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mongez/core/localization/localization_cubit.dart';
 import 'package:mongez/core/network/api_client.dart';
@@ -18,6 +17,7 @@ import 'package:mongez/features/home/domain/repositories/home_repository.dart';
 import 'package:mongez/features/home/domain/usecases/get_services_usecase.dart';
 import 'package:mongez/features/home/domain/usecases/get_areas_usecase.dart';
 import 'package:mongez/features/home/domain/usecases/get_stats_usecase.dart';
+import 'package:mongez/features/home/presentation/bloc/home_bloc.dart';
 
 import 'package:mongez/features/patient/data/datasources/patient_remote_data_source.dart';
 import 'package:mongez/features/patient/data/repositories/patient_repository_impl.dart';
@@ -29,6 +29,7 @@ import 'package:mongez/features/patient/domain/usecases/cancel_order_usecase.dar
 import 'package:mongez/features/patient/domain/usecases/rate_order_usecase.dart';
 import 'package:mongez/features/patient/domain/usecases/get_patient_profile_usecase.dart';
 import 'package:mongez/features/patient/domain/usecases/update_address_usecase.dart';
+import 'package:mongez/features/patient/presentation/bloc/patient_bloc.dart';
 
 import 'package:mongez/features/nurse/data/datasources/nurse_remote_data_source.dart';
 import 'package:mongez/features/nurse/data/repositories/nurse_repository_impl.dart';
@@ -42,12 +43,13 @@ import 'package:mongez/features/nurse/domain/usecases/get_earnings_usecase.dart'
 import 'package:mongez/features/nurse/domain/usecases/get_ratings_usecase.dart';
 import 'package:mongez/features/nurse/domain/usecases/get_nurse_profile_usecase.dart';
 import 'package:mongez/features/nurse/domain/usecases/get_nurse_stats_usecase.dart';
+import 'package:mongez/features/nurse/domain/usecases/get_nurse_services_usecase.dart';
+import 'package:mongez/features/nurse/presentation/bloc/nurse_bloc.dart';
 
 final sl = GetIt.instance;
 
 Future<void> initDependencies() async {
   sl.registerLazySingleton(() => ApiClient());
-  sl.registerLazySingleton(() => const FlutterSecureStorage());
   sl.registerLazySingleton(() => SecureStorage());
   sl.registerLazySingleton(() => LocalizationCubit(storage: sl<SecureStorage>()));
 
@@ -61,7 +63,7 @@ void _initAuth() {
   sl.registerLazySingleton(() => AuthRemoteDataSource(sl<ApiClient>()));
 
   sl.registerLazySingleton<AuthRepository>(
-    () => AuthRepositoryImpl(sl<AuthRemoteDataSource>(), sl<FlutterSecureStorage>()),
+    () => AuthRepositoryImpl(sl<AuthRemoteDataSource>(), sl<SecureStorage>()),
   );
 
   sl.registerLazySingleton(() => LoginUseCase(sl<AuthRepository>()));
@@ -72,6 +74,7 @@ void _initAuth() {
     loginUseCase: sl<LoginUseCase>(),
     registerPatientUseCase: sl<RegisterPatientUseCase>(),
     registerNurseUseCase: sl<RegisterNurseUseCase>(),
+    authRepository: sl<AuthRepository>(),
   ));
 }
 
@@ -83,6 +86,12 @@ void _initHome() {
   sl.registerLazySingleton(() => GetServicesUseCase(sl<HomeRepository>()));
   sl.registerLazySingleton(() => GetAreasUseCase(sl<HomeRepository>()));
   sl.registerLazySingleton(() => GetStatsUseCase(sl<HomeRepository>()));
+
+  sl.registerLazySingleton(() => HomeBloc(
+    getServicesUseCase: sl<GetServicesUseCase>(),
+    getAreasUseCase: sl<GetAreasUseCase>(),
+    getStatsUseCase: sl<GetStatsUseCase>(),
+  ));
 }
 
 void _initPatient() {
@@ -97,6 +106,16 @@ void _initPatient() {
   sl.registerLazySingleton(() => RateOrderUseCase(sl<PatientRepository>()));
   sl.registerLazySingleton(() => GetPatientProfileUseCase(sl<PatientRepository>()));
   sl.registerLazySingleton(() => UpdateAddressUseCase(sl<PatientRepository>()));
+
+  sl.registerLazySingleton(() => PatientBloc(
+    getPatientOrdersUseCase: sl<GetPatientOrdersUseCase>(),
+    createOrderUseCase: sl<CreateOrderUseCase>(),
+    completeOrderUseCase: sl<CompleteOrderUseCase>(),
+    cancelOrderUseCase: sl<CancelOrderUseCase>(),
+    rateOrderUseCase: sl<RateOrderUseCase>(),
+    getPatientProfileUseCase: sl<GetPatientProfileUseCase>(),
+    updateAddressUseCase: sl<UpdateAddressUseCase>(),
+  ));
 }
 
 void _initNurse() {
@@ -113,4 +132,18 @@ void _initNurse() {
   sl.registerLazySingleton(() => GetRatingsUseCase(sl<NurseRepository>()));
   sl.registerLazySingleton(() => GetNurseProfileUseCase(sl<NurseRepository>()));
   sl.registerLazySingleton(() => GetNurseStatsUseCase(sl<NurseRepository>()));
+  sl.registerLazySingleton(() => GetNurseServicesUseCase(sl<NurseRepository>()));
+
+  sl.registerLazySingleton(() => NurseBloc(
+    getActiveOrders: sl<GetNurseActiveOrdersUseCase>(),
+    getMyOrders: sl<GetNurseMyOrdersUseCase>(),
+    acceptOrder: sl<AcceptOrderUseCase>(),
+    completeOrder: sl<CompleteNurseOrderUseCase>(),
+    cancelOrder: sl<CancelNurseOrderUseCase>(),
+    getEarnings: sl<GetEarningsUseCase>(),
+    getRatings: sl<GetRatingsUseCase>(),
+    getProfile: sl<GetNurseProfileUseCase>(),
+    getStats: sl<GetNurseStatsUseCase>(),
+    getServices: sl<GetNurseServicesUseCase>(),
+  ));
 }

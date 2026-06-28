@@ -56,20 +56,27 @@ class EarningsModel extends Equatable {
   final double deducted;
   final double actual;
   final List<EarningsBreakdownModel> breakdown;
+  final int completedOrders;
 
   const EarningsModel({
     this.totalMonth = 0.0,
     this.deducted = 0.0,
     this.actual = 0.0,
     this.breakdown = const [],
+    this.completedOrders = 0,
   });
 
   factory EarningsModel.fromJson(Map<String, dynamic> json) {
     double totalMonth;
     double deducted;
     double actual;
+    int completedOrders;
 
-    if (json['total_month'] is double) {
+    if (json['total_earnings'] is String) {
+      totalMonth = double.tryParse(json['total_earnings'] as String) ?? 0.0;
+    } else if (json['totalEarnings'] is String) {
+      totalMonth = double.tryParse(json['totalEarnings'] as String) ?? 0.0;
+    } else if (json['total_month'] is double) {
       totalMonth = json['total_month'] as double;
     } else if (json['total_month'] is int) {
       totalMonth = (json['total_month'] as int).toDouble();
@@ -98,7 +105,15 @@ class EarningsModel extends Equatable {
     } else if (json['actual'] is String) {
       actual = double.tryParse(json['actual'] as String) ?? 0.0;
     } else {
-      actual = 0.0;
+      actual = totalMonth;
+    }
+
+    if (json['completed_orders'] is int) {
+      completedOrders = json['completed_orders'] as int;
+    } else if (json['completedOrders'] is int) {
+      completedOrders = json['completedOrders'] as int;
+    } else {
+      completedOrders = 0;
     }
 
     List<EarningsBreakdownModel> breakdown = [];
@@ -119,6 +134,7 @@ class EarningsModel extends Equatable {
       deducted: deducted,
       actual: actual,
       breakdown: breakdown,
+      completedOrders: completedOrders,
     );
   }
 
@@ -128,6 +144,7 @@ class EarningsModel extends Equatable {
       'deducted': deducted,
       'actual': actual,
       'breakdown': breakdown.map((e) => e.toJson()).toList(),
+      'completed_orders': completedOrders,
     };
   }
 
@@ -141,5 +158,5 @@ class EarningsModel extends Equatable {
   }
 
   @override
-  List<Object?> get props => [totalMonth, deducted, actual, breakdown];
+  List<Object?> get props => [totalMonth, deducted, actual, breakdown, completedOrders];
 }
